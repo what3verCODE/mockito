@@ -4,11 +4,15 @@
   "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "postinstall": "lefthook install"
+    "postinstall": "lefthook install",
+    "ts:check": "biome check .",
+    "rust:check": "cargo check"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.10",
     "@commitlint/cli": "^20.2.0",
     "@commitlint/config-conventional": "^20.0.0",
-    "lefthook": "^2.0.13"
+    "lefthook": "^2.0.13",
+    "typescript": "^5.9.3"
   }
 }
