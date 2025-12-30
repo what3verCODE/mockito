@@ -1,6 +1,8 @@
 rust:
   syncToolchainConfig: true
   components:
+    - rustc
+    - cargo
     - clippy
     - rustfmt
 
