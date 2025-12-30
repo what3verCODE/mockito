@@ -1,6 +1,6 @@
-//! Core route configuration types.
+//! Core route types.
 
-use crate::config::preset::Preset;
+use crate::types::preset::Preset;
 use serde::{Deserialize, Serialize};
 
 /// Transport type for route matching

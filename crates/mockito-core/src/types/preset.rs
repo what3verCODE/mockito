@@ -1,4 +1,4 @@
-use crate::config::variant::Variant;
+use crate::types::variant::Variant;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -26,7 +26,7 @@ pub struct Preset {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::variant::Variant;
+    use crate::types::variant::Variant;
     use rstest::rstest;
     use serde_json::json;
 
