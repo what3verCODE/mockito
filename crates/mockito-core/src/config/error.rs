@@ -1,55 +1,35 @@
 //! Error types for configuration parsing.
 
-use std::fmt;
+use thiserror::Error;
 
 /// Configuration parsing error
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ConfigError {
     /// JSON parsing error
-    Json(serde_json::Error),
+    #[error("JSON parsing error: {0}")]
+    Json(#[from] serde_json::Error),
     /// YAML parsing error
-    Yaml(serde_yaml::Error),
+    #[error("YAML parsing error: {0}")]
+    Yaml(#[from] serde_yaml::Error),
     /// Unknown file type
+    #[error("Unknown file type: {0}")]
     UnknownFileType(String),
-}
-
-impl fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ConfigError::Json(e) => write!(f, "JSON parsing error: {}", e),
-            ConfigError::Yaml(e) => write!(f, "YAML parsing error: {}", e),
-            ConfigError::UnknownFileType(path) => write!(f, "Unknown file type: {}", path),
-        }
-    }
-}
-
-impl std::error::Error for ConfigError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ConfigError::Json(e) => Some(e),
-            ConfigError::Yaml(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl From<serde_json::Error> for ConfigError {
-    fn from(err: serde_json::Error) -> Self {
-        ConfigError::Json(err)
-    }
-}
-
-impl From<serde_yaml::Error> for ConfigError {
-    fn from(err: serde_yaml::Error) -> Self {
-        ConfigError::Yaml(err)
-    }
+    /// Glob pattern error
+    #[error("Glob pattern error: {0}")]
+    GlobPattern(String),
+    /// IO error when reading file
+    #[error("Failed to read file {path}: {source}")]
+    Io {
+        #[source]
+        source: std::io::Error,
+        path: String,
+    },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use rstest::rstest;
-    use std::error::Error;
 
     #[rstest]
     fn test_config_error_json_display() {
@@ -79,20 +59,6 @@ mod tests {
     }
 
     #[rstest]
-    fn test_config_error_source() {
-        let json_err = serde_json::from_str::<serde_json::Value>("invalid").unwrap_err();
-        let error = ConfigError::from(json_err);
-        assert!(error.source().is_some());
-
-        let yaml_err = serde_yaml::from_str::<serde_yaml::Value>("invalid: [").unwrap_err();
-        let error = ConfigError::from(yaml_err);
-        assert!(error.source().is_some());
-
-        let error = ConfigError::UnknownFileType("test.txt".to_string());
-        assert!(error.source().is_none());
-    }
-
-    #[rstest]
     fn test_config_error_from_serde_json() {
         let json_err = serde_json::from_str::<serde_json::Value>("invalid").unwrap_err();
         let error: ConfigError = json_err.into();
@@ -104,5 +70,27 @@ mod tests {
         let yaml_err = serde_yaml::from_str::<serde_yaml::Value>("invalid: [").unwrap_err();
         let error: ConfigError = yaml_err.into();
         assert!(matches!(error, ConfigError::Yaml(_)));
+    }
+
+    #[rstest]
+    fn test_config_error_glob_pattern_display() {
+        let error = ConfigError::GlobPattern("Invalid glob pattern: *[".to_string());
+        let display = format!("{}", error);
+        assert!(display.contains("Glob pattern error"));
+        assert!(display.contains("Invalid glob pattern"));
+    }
+
+    #[rstest]
+    fn test_config_error_io_display() {
+        use std::io;
+        let io_err = io::Error::new(io::ErrorKind::NotFound, "File not found");
+        let error = ConfigError::Io {
+            source: io_err,
+            path: "test.yaml".to_string(),
+        };
+        let display = format!("{}", error);
+        assert!(display.contains("Failed to read file"));
+        assert!(display.contains("test.yaml"));
+        assert!(display.contains("File not found"));
     }
 }
