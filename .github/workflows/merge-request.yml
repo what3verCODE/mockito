@@ -26,10 +26,6 @@ jobs:
           auto-setup: true
           cache: false
 
-      - run: rustup update
-
-      - run: rustup show
-
       - run: pnpm install --frozen-lockfile
 
       - run: moon ci :lint :fmt :test
@@ -38,6 +34,3 @@ jobs:
         if: success() || failure()
         with:
           access-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: "appthrust/moon-ci-retrospect@v2"
-        if: success() || failure()
