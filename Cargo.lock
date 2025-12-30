@@ -105,6 +105,7 @@ name = "mockito-core"
 version = "0.1.0"
 dependencies = [
  "glob",
+ "regex",
  "rstest",
  "serde",
  "serde_json",
