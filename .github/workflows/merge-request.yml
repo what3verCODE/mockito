@@ -21,8 +21,6 @@ jobs:
         with:
           auto-install: true
 
-      - run: rustup update
-
       - run: pnpm install --frozen-lockfile
 
       - run: moon ci :lint :fmt :test
