@@ -21,6 +21,7 @@ jobs:
         with:
           auto-install: true
           auto-setup: true
+          cache: false
 
       - run: rustup update
 
