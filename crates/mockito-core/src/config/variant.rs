@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Response variant for a preset
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Variant {
     /// Unique identifier for this variant within the preset
     pub id: String,
@@ -15,13 +15,80 @@ pub struct Variant {
     /// Response body (JSON)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<serde_json::Value>,
-    /// Path to file to serve as response body
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub file: Option<String>,
-    /// URL to proxy the request to
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub proxy: Option<String>,
-    /// Delay in milliseconds before sending response
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub delay: Option<u64>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use serde_json::json;
+
+    #[rstest]
+    fn test_variant_serialize_deserialize() {
+        let variant = Variant {
+            id: "test-variant".to_string(),
+            status: Some(200),
+            headers: Some({
+                let mut map = HashMap::new();
+                map.insert("Content-Type".to_string(), "application/json".to_string());
+                map
+            }),
+            body: Some(json!({"message": "success"})),
+        };
+
+        let json = serde_json::to_string(&variant).expect("Should serialize");
+        let deserialized: Variant = serde_json::from_str(&json).expect("Should deserialize");
+
+        assert_eq!(deserialized.id, variant.id);
+        assert_eq!(deserialized.status, variant.status);
+        assert_eq!(deserialized.headers, variant.headers);
+        assert_eq!(deserialized.body, variant.body);
+    }
+
+    #[rstest]
+    #[case("status")]
+    #[case("headers")]
+    #[case("body")]
+    fn test_variant_optional_fields_omitted_when_none(#[case] field: &str) {
+        let variant = Variant {
+            id: "minimal-variant".to_string(),
+            status: None,
+            headers: None,
+            body: None,
+        };
+
+        let json = serde_json::to_string(&variant).expect("Should serialize");
+        assert!(
+            !json.contains(field),
+            "Field '{}' should be omitted when None",
+            field
+        );
+
+        let deserialized: Variant = serde_json::from_str(&json).expect("Should deserialize");
+        assert_eq!(deserialized.id, variant.id);
+        assert_eq!(deserialized.status, None);
+        assert_eq!(deserialized.headers, None);
+        assert_eq!(deserialized.body, None);
+    }
+
+    #[rstest]
+    #[case(200)]
+    #[case(201)]
+    #[case(400)]
+    #[case(404)]
+    #[case(500)]
+    #[case(503)]
+    fn test_variant_status_codes(#[case] status: u16) {
+        let variant = Variant {
+            id: "test".to_string(),
+            status: Some(status),
+            headers: None,
+            body: None,
+        };
+
+        let json = serde_json::to_string(&variant).expect("Should serialize");
+        let deserialized: Variant = serde_json::from_str(&json).expect("Should deserialize");
+
+        assert_eq!(deserialized, variant);
+    }
 }
