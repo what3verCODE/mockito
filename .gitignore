@@ -3,6 +3,7 @@
 .moon/cache/
 .moon/docker/
 .vscode/
+node_modules/
 
 Thumbs.db
 

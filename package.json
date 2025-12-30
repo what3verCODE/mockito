@@ -1,0 +1,14 @@
+{
+  "name": "mockito-monorepo",
+  "keywords": [],
+  "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "lefthook install"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "lefthook": "^2.0.13"
+  }
+}
