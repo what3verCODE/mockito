@@ -4,9 +4,11 @@
 .moon/docker/
 .vscode/
 node_modules/
+target/
 
 Thumbs.db
 
 *.swp
 *.swo
 *.log
+*.rs.bk
