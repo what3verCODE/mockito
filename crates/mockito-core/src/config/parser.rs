@@ -1,8 +1,10 @@
 //! Configuration file parsing (YAML/JSON/JSONC).
 
 use crate::config::error::ConfigError;
+use crate::types::{collection::Collection, route::Route};
+use glob::glob;
 use serde::de::DeserializeOwned;
-use std::path::Path;
+use std::{fs, path::Path};
 
 /// Config file type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +29,11 @@ pub fn get_file_type(path: &str) -> ConfigFileType {
         "jsonc" => ConfigFileType::Jsonc,
         _ => ConfigFileType::Unknown,
     }
+}
+
+/// Check if file is a supported config file
+fn is_supported_config_file(path: &str) -> bool {
+    !matches!(get_file_type(path), ConfigFileType::Unknown)
 }
 
 /// Strip comments from JSONC content
@@ -116,6 +123,61 @@ pub fn parse_config<T: DeserializeOwned>(content: &str, path: &str) -> Result<T,
         ConfigFileType::Json => parse_json(content),
         ConfigFileType::Jsonc => parse_jsonc(content),
         ConfigFileType::Unknown => Err(ConfigError::UnknownFileType(path.to_string())),
+    }
+}
+
+fn expand_glob(pattern: &str) -> Result<Vec<String>, ConfigError> {
+    let entries = glob(pattern)
+        .map_err(|e| ConfigError::GlobPattern(format!("Invalid glob pattern: {}", e)))?;
+
+    let mut paths = Vec::new();
+    for entry in entries {
+        let path =
+            entry.map_err(|e| ConfigError::GlobPattern(format!("Glob pattern error: {}", e)))?;
+        if let Some(s) = path.to_str() {
+            paths.push(s.to_owned());
+        }
+    }
+
+    Ok(paths)
+}
+
+/// Load routes from a file or glob pattern.
+pub fn load_routes(pattern: &str) -> Result<Vec<Route>, ConfigError> {
+    let paths = expand_glob(pattern)?;
+    let mut routes = Vec::new();
+
+    for p in paths {
+        if !is_supported_config_file(&p) {
+            continue;
+        }
+        let content = fs::read_to_string(&p).map_err(|e| ConfigError::Io {
+            source: e,
+            path: p.clone(),
+        })?;
+        let parsed: Route = parse_config(&content, &p)?;
+        routes.push(parsed);
+    }
+
+    Ok(routes)
+}
+
+/// Load collections from a file.
+/// Supports both single collection and array of collections.
+pub fn load_collections(path: &str) -> Result<Vec<Collection>, ConfigError> {
+    let content = fs::read_to_string(path).map_err(|e| ConfigError::Io {
+        source: e,
+        path: path.to_string(),
+    })?;
+
+    // Try to parse as array first, then as single collection
+    match parse_config::<Vec<Collection>>(&content, path) {
+        Ok(collections) => Ok(collections),
+        Err(_) => {
+            // If array parsing fails, try single collection
+            let collection = parse_config::<Collection>(&content, path)?;
+            Ok(vec![collection])
+        }
     }
 }
 
@@ -292,5 +354,245 @@ mod tests {
             result.unwrap_err(),
             ConfigError::UnknownFileType(_)
         ));
+    }
+
+    #[rstest]
+    #[case("test.yaml", true)]
+    #[case("test.yml", true)]
+    #[case("test.json", true)]
+    #[case("test.jsonc", true)]
+    #[case("test.txt", false)]
+    #[case("test.unknown", false)]
+    #[case("", false)]
+    fn test_is_supported_config_file(#[case] path: &str, #[case] expected: bool) {
+        assert_eq!(is_supported_config_file(path), expected);
+    }
+
+    #[rstest]
+    fn test_expand_glob_valid_pattern() {
+        // Create a temporary test file
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_route.json");
+        let test_content = r#"{"id": "test", "url": "/api", "transport": "HTTP", "presets": []}"#;
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let pattern = test_file.to_str().unwrap();
+        let result = expand_glob(pattern);
+        assert!(result.is_ok());
+        let paths = result.unwrap();
+        assert!(!paths.is_empty());
+        assert!(paths.contains(&pattern.to_string()));
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_expand_glob_invalid_pattern() {
+        let result = expand_glob("[invalid");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ConfigError::GlobPattern(_)));
+    }
+
+    #[rstest]
+    fn test_expand_glob_no_matches() {
+        let result = expand_glob("nonexistent_*.json");
+        assert!(result.is_ok());
+        let paths = result.unwrap();
+        assert!(paths.is_empty());
+    }
+
+    #[rstest]
+    fn test_load_routes_single_file() {
+        // Create a temporary test file
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_route_load.json");
+        let test_content = r#"{"id": "test", "url": "/api", "transport": "HTTP", "presets": []}"#;
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let pattern = test_file.to_str().unwrap();
+        let result = load_routes(pattern);
+        assert!(result.is_ok());
+        let routes = result.unwrap();
+        assert_eq!(routes.len(), 1);
+        assert_eq!(routes[0].id, "test");
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_load_routes_nonexistent_file() {
+        let result = load_routes("nonexistent_file.json");
+        assert!(result.is_ok()); // Glob returns empty, so no error
+        let routes = result.unwrap();
+        assert!(routes.is_empty());
+    }
+
+    #[rstest]
+    fn test_load_routes_invalid_glob_pattern() {
+        let result = load_routes("[invalid");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ConfigError::GlobPattern(_)));
+    }
+
+    #[rstest]
+    fn test_load_routes_invalid_json() {
+        // Create a temporary test file with invalid JSON
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_invalid.json");
+        let test_content = "invalid json content";
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let pattern = test_file.to_str().unwrap();
+        let result = load_routes(pattern);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ConfigError::Json(_)));
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_load_routes_unsupported_file_type() {
+        // Create a temporary test file with unsupported extension
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_route.txt");
+        let test_content = "some content";
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let pattern = test_file.to_str().unwrap();
+        let result = load_routes(pattern);
+        assert!(result.is_ok());
+        let routes = result.unwrap();
+        assert!(routes.is_empty()); // Unsupported files are skipped
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_load_collections_json() {
+        // Create a temporary test file
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_collection.json");
+        let test_content = r#"{"id": "test-collection", "routes": ["route1:preset1:variant1"]}"#;
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let path = test_file.to_str().unwrap();
+        let result = load_collections(path);
+        assert!(result.is_ok());
+        let collections = result.unwrap();
+        assert_eq!(collections.len(), 1);
+        assert_eq!(collections[0].id, "test-collection");
+        assert_eq!(collections[0].routes.len(), 1);
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_load_collections_yaml() {
+        // Create a temporary test file
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_collection.yaml");
+        let test_content = "id: test-collection\nroutes:\n  - route1:preset1:variant1";
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let path = test_file.to_str().unwrap();
+        let result = load_collections(path);
+        assert!(result.is_ok());
+        let collections = result.unwrap();
+        assert_eq!(collections.len(), 1);
+        assert_eq!(collections[0].id, "test-collection");
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_load_collections_with_from() {
+        // Create a temporary test file with 'from' field
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_collection_from.json");
+        let test_content =
+            r#"{"id": "child", "from": "parent", "routes": ["route1:preset1:variant1"]}"#;
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let path = test_file.to_str().unwrap();
+        let result = load_collections(path);
+        assert!(result.is_ok());
+        let collections = result.unwrap();
+        assert_eq!(collections.len(), 1);
+        assert_eq!(collections[0].id, "child");
+        assert_eq!(collections[0].from, Some("parent".to_string()));
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_load_collections_nonexistent_file() {
+        let result = load_collections("nonexistent_file.json");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ConfigError::Io { .. }));
+    }
+
+    #[rstest]
+    fn test_load_collections_invalid_json() {
+        // Create a temporary test file with invalid JSON
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_invalid_collection.json");
+        let test_content = "invalid json content";
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let path = test_file.to_str().unwrap();
+        let result = load_collections(path);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ConfigError::Json(_)));
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_load_collections_unknown_file_type() {
+        // Create a temporary test file with unsupported extension
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_collection.txt");
+        let test_content = "some content";
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let path = test_file.to_str().unwrap();
+        let result = load_collections(path);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ConfigError::UnknownFileType(_)
+        ));
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[rstest]
+    fn test_load_collections_array() {
+        // Test parsing array of collections
+        let test_dir = std::env::temp_dir();
+        let test_file = test_dir.join("test_collections_array.json");
+        let test_content =
+            r#"[{"id": "collection1", "routes": []}, {"id": "collection2", "routes": []}]"#;
+        std::fs::write(&test_file, test_content).unwrap();
+
+        let path = test_file.to_str().unwrap();
+        let result = load_collections(path);
+        assert!(result.is_ok());
+        let collections = result.unwrap();
+        assert_eq!(collections.len(), 2);
+        assert_eq!(collections[0].id, "collection1");
+        assert_eq!(collections[1].id, "collection2");
+
+        // Cleanup
+        let _ = std::fs::remove_file(&test_file);
     }
 }
