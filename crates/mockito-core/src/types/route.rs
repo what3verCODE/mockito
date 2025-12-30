@@ -54,9 +54,10 @@ impl RouteReference {
             return None;
         }
 
-        let [route_id, preset_id, variant_id] = parts[..] else {
-            return None;
-        };
+        // Safe to unwrap because we checked parts.len() == 3
+        let route_id = parts[0];
+        let preset_id = parts[1];
+        let variant_id = parts[2];
 
         if route_id.is_empty() || preset_id.is_empty() || variant_id.is_empty() {
             return None;
