@@ -19,6 +19,9 @@ pub struct Preset {
     /// Request body to match (for POST/PUT/PATCH)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub payload: Option<HashMap<String, serde_json::Value>>,
+    /// JMESPath expression for complex body matching (alternative to payload)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload_expr: Option<String>,
     /// Response variants
     pub variants: Vec<Variant>,
 }
@@ -54,6 +57,7 @@ mod tests {
                 map.insert("name".to_string(), json!("John"));
                 map
             }),
+            payload_expr: None,
             variants: vec![],
         };
 
@@ -79,6 +83,7 @@ mod tests {
             query: None,
             headers: None,
             payload: None,
+            payload_expr: None,
             variants: vec![],
         };
 
@@ -115,6 +120,7 @@ mod tests {
             query: None,
             headers: None,
             payload: None,
+            payload_expr: None,
             variants: vec![variant],
         };
 
@@ -140,6 +146,7 @@ mod tests {
             query: None,
             headers: None,
             payload: None,
+            payload_expr: None,
             variants: vec![],
         };
 
