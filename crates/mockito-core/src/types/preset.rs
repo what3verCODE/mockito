@@ -13,6 +13,9 @@ pub struct Preset {
     /// Query parameters to match
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<HashMap<String, String>>,
+    /// JMESPath expression for complex query parameter matching (alternative to query)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub query_expr: Option<String>,
     /// Request headers to match
     #[serde(skip_serializing_if = "Option::is_none")]
     pub headers: Option<HashMap<String, String>>,
@@ -58,6 +61,7 @@ mod tests {
                 map
             }),
             payload_expr: None,
+            query_expr: None,
             variants: vec![],
         };
 
@@ -74,6 +78,7 @@ mod tests {
     #[rstest]
     #[case("params")]
     #[case("query")]
+    #[case("query_expr")]
     #[case("headers")]
     #[case("payload")]
     fn test_preset_optional_fields_omitted_when_none(#[case] field: &str) {
@@ -84,6 +89,7 @@ mod tests {
             headers: None,
             payload: None,
             payload_expr: None,
+            query_expr: None,
             variants: vec![],
         };
 
@@ -121,6 +127,7 @@ mod tests {
             headers: None,
             payload: None,
             payload_expr: None,
+            query_expr: None,
             variants: vec![variant],
         };
 
@@ -147,6 +154,7 @@ mod tests {
             headers: None,
             payload: None,
             payload_expr: None,
+            query_expr: None,
             variants: vec![],
         };
 
