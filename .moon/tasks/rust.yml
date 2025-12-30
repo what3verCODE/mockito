@@ -23,26 +23,23 @@ tasks:
     outputs:
       - 'target/release/**/*'
     local: true
-
+    
   check:
     command: 'cargo check'
     inputs:
       - '@globs(sources)'
-    local: true
 
   test:
     command: 'cargo test --all-features'
     inputs:
       - '@globs(sources)'
       - '@globs(tests)'
-    local: true
 
   fmt:
     command: 'cargo fmt --all --check'
     inputs:
       - '@globs(sources)'
       - '@globs(tests)'
-    local: true
 
   fmt-write:
     command: 'cargo fmt --all'
@@ -56,7 +53,6 @@ tasks:
     inputs:
       - '@globs(sources)'
       - '@globs(tests)'
-    local: true
 
   lint-fix:
     command: 'cargo clippy --fix --all-features'
@@ -70,7 +66,6 @@ tasks:
     inputs:
       - '@globs(sources)'
       - '@globs(tests)'
-    local: true
 
   clean:
     command: 'cargo clean'
