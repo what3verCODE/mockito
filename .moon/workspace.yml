@@ -1,0 +1,30 @@
+# Moon workspace configuration
+# https://moonrepo.dev/docs/config/workspace
+
+$schema: 'https://moonrepo.dev/schemas/workspace.json'
+
+projects:
+  - 'crates/*'
+
+vcs:
+  manager: git
+  defaultBranch: main
+  remoteCandidates:
+    - origin
+
+hasher:
+  optimization: performance
+  ignorePatterns:
+    - '**/.git/**'
+    - '**/target/**'
+    - '**/*.log'
+
+runner:
+  logRunningCommand: true
+  cacheLifetime: '7 days'
+  archivableTargets:
+    - ':build'
+    - ':test'
+
+versionConstraint: '>=1.0.0'
+telemetry: false

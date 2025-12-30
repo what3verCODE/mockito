@@ -1,0 +1,9 @@
+# https://moonrepo.dev/proto
+
+rust = "1.92.0"
+
+[settings]
+auto-install = true
+
+detect-strategy = "prefer-prototools"
+telemetry = false
