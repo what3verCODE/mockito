@@ -1,0 +1,13 @@
+{
+  "name": "@mockito/core",
+  "version": "0.1.0",
+  "description": "Core library for creating mocks for testing and development",
+  "keywords": [
+    "mock",
+    "api",
+    "testing",
+    "development"
+  ],
+  "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
+  "license": "MIT"
+}
