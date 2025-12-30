@@ -1,8 +1,3 @@
-# Moon toolchain configuration
-# https://moonrepo.dev/docs/config/toolchain
-
-$schema: 'https://moonrepo.dev/schemas/toolchain.json'
-
 rust:
   syncToolchainConfig: true
   components:

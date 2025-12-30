@@ -1,0 +1,77 @@
+fileGroups:
+  sources:
+    - 'src/**/*'
+    - 'Cargo.toml'
+    - 'Cargo.lock'
+  tests:
+    # Tests are in the same files as code (in #[cfg(test)] modules)
+    - 'src/**/*'
+
+tasks:
+  build:
+    command: 'cargo build'
+    inputs:
+      - '@globs(sources)'
+    outputs:
+      - 'target/debug/**/*'
+    local: true
+
+  build-release:
+    command: 'cargo build --release'
+    inputs:
+      - '@globs(sources)'
+    outputs:
+      - 'target/release/**/*'
+    local: true
+
+  check:
+    command: 'cargo check'
+    inputs:
+      - '@globs(sources)'
+    local: true
+
+  test:
+    command: 'cargo test --all-features'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(tests)'
+    local: true
+
+  fmt:
+    command: 'cargo fmt --all --check'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(tests)'
+    local: true
+
+  fmt-write:
+    command: 'cargo fmt --all'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(tests)'
+    local: true
+
+  lint:
+    command: 'cargo clippy --all-features -- -D warnings'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(tests)'
+    local: true
+
+  lint-fix:
+    command: 'cargo clippy --fix --all-features'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(tests)'
+    local: true
+
+  coverage:
+    command: 'cargo tarpaulin --out stdout'
+    inputs:
+      - '@globs(sources)'
+      - '@globs(tests)'
+    local: true
+
+  clean:
+    command: 'cargo clean'
+    local: true
