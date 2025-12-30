@@ -1,0 +1,14 @@
+fileGroups:
+  sources:
+    - '*.yml'
+    - '*.yaml'
+    - '*.json'
+    - '*.jsonc'
+    - '*.toml'
+    - '*.lock'
+
+tasks:
+  lint:
+    command: 'biome check --write-changes'
+    inputs:
+      - '@globs(sources)'

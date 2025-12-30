@@ -30,7 +30,32 @@
       "semicolons": "always"
     }
   },
+  "json": {
+    "formatter": {
+      "enabled": true,
+      "indentStyle": "space",
+      "indentWidth": 2,
+      "lineWidth": 120,
+      "trailingCommas": "none"
+    }
+  },
   "files": {
-    "includes": ["**/*.ts", "!**/.moon", "!**/node_modules", "!**/target"]
+    "ignoreUnknown": true,
+    "includes": [
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.json",
+      "**/*.jsonc",
+      "**/*.yml",
+      "**/*.yaml",
+      "!!**/.moon",
+      "!!**/node_modules",
+      "!!**/target",
+      "!!**/*.lock",
+      "!!**/pnpm-lock.yaml",
+      "!!**/Cargo.lock"
+    ]
   }
 }

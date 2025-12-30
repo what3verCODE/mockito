@@ -1,0 +1,25 @@
+{
+  "yaml.schemas": {
+    "https://moonrepo.dev/schemas/tasks.json": [".moon/tasks/**/*.yml", ".moon/tasks/**/*.yaml"],
+    "https://moonrepo.dev/schemas/toolchain.json": [".moon/toolchain.yml", ".moon/toolchain.yaml"],
+    "https://moonrepo.dev/schemas/workspace.json": [".moon/workspace.yml", ".moon/workspace.yaml"]
+  },
+  "yaml.customTags": [
+    "!And",
+    "!If",
+    "!Not",
+    "!Equals",
+    "!Or",
+    "!FindInMap sequence",
+    "!Base64",
+    "!Cidr",
+    "!Ref",
+    "!Sub",
+    "!GetAtt",
+    "!GetAZs",
+    "!ImportValue",
+    "!Select",
+    "!Split",
+    "!Join sequence"
+  ]
+}

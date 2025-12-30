@@ -1,8 +1,6 @@
 .DS_Store
-.idea/
 .moon/cache/
 .moon/docker/
-.vscode/
 node_modules/
 target/
 
