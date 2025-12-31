@@ -1,11 +1,10 @@
 pre-commit:
   commands:
-    rust:fmt:
-      run: cargo fmt --check
-    rust:lint:
-      run: cargo clippy
-    ts:check:
-      run: pnpm biome check
+    fmt:
+      run: pnpm biome format . --write && cargo fmt
+    lint:
+      run: pnpm biome check && cargo check
+
 
 commit-msg:
   commands:
