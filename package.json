@@ -5,13 +5,24 @@
   "license": "MIT",
   "scripts": {
     "postinstall": "lefthook install",
-    "ts:check": "biome check .",
-    "rust:check": "cargo check"
+    "lint": "moon :lint",
+    "lint:fix": "moon :lint-fix",
+    "fmt": "moon :fmt",
+    "fmt:write": "moon :fmt-write",
+    "check": "moon :check",
+    "test": "moon :test",
+    "coverage": "moon :coverage",
+    "build": "moon :build",
+    "build:release": "moon :build-release",
+    "commit": "cz"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
     "@commitlint/cli": "^20.2.0",
     "@commitlint/config-conventional": "^20.0.0",
+    "@commitlint/cz-commitlint": "^20.2.0",
+    "@moonrepo/cli": "^1.41.7",
+    "commitizen": "^4.3.1",
     "lefthook": "^2.0.13",
     "typescript": "^5.9.3"
   }
