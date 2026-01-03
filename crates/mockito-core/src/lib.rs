@@ -2,5 +2,6 @@
 
 pub mod config;
 pub mod expression;
+pub mod manager;
 pub mod matching;
 pub mod types;
