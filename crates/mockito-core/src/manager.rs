@@ -1,8 +1,8 @@
 //! Mocks manager for managing routes and collections.
 //!
 //! This module provides `MocksManager` which stores and resolves collections and routes.
-//! It will be used by `MocksController` (to be implemented) for handling dynamic
-//! changes to mocked routes from added collections/routes.
+//! It is used by `ControllerManager` for handling dynamic changes to mocked routes
+//! from added collections/routes.
 
 use crate::types::collection::Collection;
 use crate::types::preset::Preset;
@@ -30,7 +30,7 @@ pub struct ActiveRoute {
 /// - Detecting circular dependencies
 /// - Merging routes (child collections override parent routes)
 ///
-/// This manager will be used by `MocksController` to handle dynamic changes
+/// This manager is used by `ControllerManager` to handle dynamic changes
 /// to mocked routes from added collections/routes.
 #[derive(Debug, Clone)]
 pub struct MocksManager {
