@@ -4,7 +4,7 @@ use crate::types::preset::Preset;
 use serde::{Deserialize, Serialize};
 
 /// Transport type for route matching
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Transport {
     Http,
@@ -12,7 +12,7 @@ pub enum Transport {
 }
 
 /// HTTP method for route matching
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum HttpMethod {
     Get,
@@ -25,7 +25,7 @@ pub enum HttpMethod {
 }
 
 /// Mock route definition
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Route {
     /// Unique identifier for this route
     pub id: String,
