@@ -1,3 +1,4 @@
 packages:
   - 'bindings/*'
+  - 'bindings/node_binding/npm/*'
   - 'packages/*'

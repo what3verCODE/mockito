@@ -30,6 +30,26 @@ importers:
         specifier: ^3.5.1
         version: 3.5.1(@emnapi/runtime@1.8.0)(@types/node@25.0.3)
 
+  bindings/node_binding/npm/darwin-arm64: {}
+
+  bindings/node_binding/npm/darwin-x64: {}
+
+  bindings/node_binding/npm/linux-arm-gnueabihf: {}
+
+  bindings/node_binding/npm/linux-arm64-gnu: {}
+
+  bindings/node_binding/npm/linux-arm64-musl: {}
+
+  bindings/node_binding/npm/linux-x64-gnu: {}
+
+  bindings/node_binding/npm/linux-x64-musl: {}
+
+  bindings/node_binding/npm/win32-arm64-msvc: {}
+
+  bindings/node_binding/npm/win32-ia32-msvc: {}
+
+  bindings/node_binding/npm/win32-x64-msvc: {}
+
   packages/mockito-core:
     dependencies:
       '@mockito/binding':
