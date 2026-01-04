@@ -1,6 +1,8 @@
+//! Collection types.
+
 use serde::{Deserialize, Serialize};
 
-/// Collection of routes for a specific scenario
+/// Collection of routes for a specific scenario.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Collection {
     /// Unique identifier for this collection

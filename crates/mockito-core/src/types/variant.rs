@@ -1,7 +1,9 @@
+//! Response variant types.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Response variant for a preset
+/// Response variant for a preset.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Variant {
     /// Unique identifier for this variant within the preset

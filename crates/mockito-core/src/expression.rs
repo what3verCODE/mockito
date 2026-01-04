@@ -1,16 +1,10 @@
 //! JMESPath expression utilities for matching and response processing.
-//!
-//! This module provides functions for:
-//! - Evaluating JMESPath expressions on JSON data
-//! - Converting between serde_json::Value and jmespath::Variable
-//! - Matching data using JMESPath expressions (for request matching)
-//! - Extracting values using JMESPath expressions (for response processing)
 
 use jmespath::Variable;
 use serde_json::Value;
 use std::rc::Rc;
 
-/// Convert serde_json::Value to jmespath::Variable
+/// Convert serde_json::Value to jmespath::Variable.
 pub fn value_to_variable(value: &Value) -> Rc<Variable> {
     match value {
         Value::Null => Rc::new(Variable::Null),
@@ -31,7 +25,7 @@ pub fn value_to_variable(value: &Value) -> Rc<Variable> {
     }
 }
 
-/// Convert jmespath::Variable to serde_json::Value
+/// Convert jmespath::Variable to serde_json::Value.
 pub fn variable_to_value(var: &Rc<Variable>) -> Result<Value, String> {
     match var.as_ref() {
         Variable::Null => Ok(Value::Null),
@@ -54,7 +48,6 @@ pub fn variable_to_value(var: &Rc<Variable>) -> Result<Value, String> {
 }
 
 /// Convert JMESPath expression result to boolean.
-/// Returns true for truthy values (non-null, non-zero, non-empty).
 pub fn jmespath_result_to_bool(value: &Value) -> bool {
     match value {
         Value::Bool(b) => *b,
@@ -67,7 +60,6 @@ pub fn jmespath_result_to_bool(value: &Value) -> bool {
 }
 
 /// Match data using JMESPath expression.
-/// Returns true if expression evaluates to a truthy value.
 pub fn match_with_jmespath(expression: &str, data: &Value) -> bool {
     // Parse JMESPath expression
     let expr = match jmespath::compile(expression) {
@@ -95,7 +87,6 @@ pub fn match_with_jmespath(expression: &str, data: &Value) -> bool {
 }
 
 /// Evaluate JMESPath expression on data and return the result as Value.
-/// Returns None if expression is invalid or execution fails.
 pub fn evaluate_jmespath(expression: &str, data: &Value) -> Option<Value> {
     // Parse JMESPath expression
     let expr = match jmespath::compile(expression) {

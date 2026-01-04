@@ -4,9 +4,7 @@ use crate::expression::match_with_jmespath;
 use crate::matching::intersection::{hashmap_intersects, hashmap_to_value};
 use std::collections::HashMap;
 
-/// Parse query string into HashMap with support for multiple values per key.
-/// URL-decodes both keys and values.
-/// For multiple values, stores them as comma-separated string or array.
+/// Parse query string into HashMap with URL decoding.
 pub fn parse_query_string(query_str: &str) -> HashMap<String, String> {
     let mut result = HashMap::new();
 
@@ -44,14 +42,12 @@ pub fn parse_query_string(query_str: &str) -> HashMap<String, String> {
 }
 
 /// Match query parameters using JMESPath expression.
-/// Converts query HashMap to JSON and evaluates expression.
 fn match_query_with_expression(expression: &str, query_params: &HashMap<String, String>) -> bool {
     let query_json = hashmap_to_value(query_params);
     match_with_jmespath(expression, &query_json)
 }
 
 /// Match query parameters using either HashMap intersection or JMESPath expression.
-/// If query_expr is provided, use JMESPath. Otherwise, use hashmap_intersects.
 pub fn query_matches(
     expected: Option<&HashMap<String, String>>,
     query_expr: Option<&str>,

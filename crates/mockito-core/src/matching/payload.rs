@@ -6,7 +6,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 /// Match request payload using either object intersection or JMESPath expression.
-/// If payload_expr is provided, use JMESPath. Otherwise, use object_intersects.
 pub fn payload_matches(
     payload: Option<&HashMap<String, Value>>,
     payload_expr: Option<&str>,

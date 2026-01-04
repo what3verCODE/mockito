@@ -1,43 +1,43 @@
 //! Controller for managing active routes and switching between collections.
 //!
-//! This module provides `ControllerManager` which manages active routes from collections
+//! This module provides `MocksController` which manages active routes from collections
 //! and provides fast route lookup by request matching.
 
-use crate::manager::{ActiveRoute, MocksManager, ResolveError};
 use crate::matching::{
     headers_intersects, parse_query_string, payload_matches, query_matches, url_matches,
 };
+use crate::mocks::manager::{ActiveRoute, MocksManager, ResolveError};
 use crate::types::preset::Preset;
 use crate::types::route::{HttpMethod, Transport};
 use serde_json::Value;
 use std::collections::HashMap;
 
-/// HTTP request for route matching
+/// HTTP request for route matching.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
     /// Request URL (path + query string)
     pub url: String,
-    /// HTTP method
+    /// HTTP method (required for HTTP routes, `None` for WebSocket)
     pub method: Option<HttpMethod>,
     /// Transport type
     pub transport: Transport,
     /// Request headers
     pub headers: Option<HashMap<String, String>>,
-    /// Query parameters (parsed from URL or provided separately)
+    /// Query parameters (parsed from URL if `None`)
     pub query: Option<HashMap<String, String>>,
-    /// Request body/payload (for POST/PUT/PATCH)
+    /// Request body/payload
     pub payload: Option<Value>,
 }
 
 /// Manager for controlling active routes and collection switching.
 ///
-/// `ControllerManager` provides:
+/// `MocksController` provides:
 /// - Collection activation via `use_collection()`
 /// - Fast route lookup via `find_route()`
 /// - Cached active routes for performance
 /// - Request matching against route presets
 #[derive(Debug, Clone)]
-pub struct ControllerManager {
+pub struct MocksController {
     /// Mocks manager for storing and resolving collections/routes
     mocks_manager: MocksManager,
     /// Currently active collection ID
@@ -46,8 +46,8 @@ pub struct ControllerManager {
     cached_active_routes: Vec<ActiveRoute>,
 }
 
-impl ControllerManager {
-    /// Create a new ControllerManager with MocksManager.
+impl MocksController {
+    /// Create a new MocksController with MocksManager.
     ///
     /// The controller consumes the manager and uses its data as the source for route resolution.
     /// Data from the manager is read-only - routes and collections should be added to MocksManager
@@ -78,7 +78,9 @@ impl ControllerManager {
         &self.cached_active_routes
     }
 
-    /// Get currently active collection ID
+    /// Get currently active collection ID.
+    ///
+    /// Returns `None` if no collection is currently active.
     pub fn active_collection_id(&self) -> Option<&str> {
         self.active_collection_id.as_deref()
     }
@@ -95,7 +97,10 @@ impl ControllerManager {
             .find(|active_route| self.route_matches_request(active_route, request))
     }
 
-    /// Check if an active route matches the given request
+    /// Check if an active route matches the given request.
+    ///
+    /// Matches transport, method, URL, headers, query, and payload.
+    /// Supports JMESPath expressions for query and payload matching.
     fn route_matches_request(&self, active_route: &ActiveRoute, request: &Request) -> bool {
         let route = &active_route.route;
         let preset = &active_route.preset;
@@ -174,7 +179,7 @@ impl ControllerManager {
         self.check_payload(preset, &request.payload)
     }
 
-    /// Helper method to check query with parsed query from URL
+    /// Check query parameters with parsed query from URL.
     fn check_query_with_parsed(
         &self,
         preset: &Preset,
@@ -188,7 +193,9 @@ impl ControllerManager {
         )
     }
 
-    /// Helper method to check payload
+    /// Check request payload/body.
+    ///
+    /// Returns `false` if preset expects payload but request doesn't have it.
     fn check_payload(&self, preset: &Preset, request_payload: &Option<Value>) -> bool {
         if let Some(request_payload) = request_payload {
             payload_matches(
@@ -251,7 +258,7 @@ mod tests {
     #[rstest]
     fn test_controller_manager_new() {
         let manager = MocksManager::new();
-        let controller = ControllerManager::new(manager);
+        let controller = MocksController::new(manager);
         assert_eq!(controller.active_collection_id(), None);
         assert_eq!(controller.get_active_routes().len(), 0);
     }
@@ -274,7 +281,7 @@ mod tests {
         manager.add_collection(collection);
 
         // Create controller with manager
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
 
         // Activate collection
         let result = controller.use_collection("collection1");
@@ -286,7 +293,7 @@ mod tests {
     #[rstest]
     fn test_use_collection_not_found() {
         let manager = MocksManager::new();
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         let result = controller.use_collection("nonexistent");
         assert!(result.is_err());
         assert!(matches!(
@@ -324,7 +331,7 @@ mod tests {
         manager.add_collection(collection);
 
         // Activate collection
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Get active routes
@@ -354,7 +361,7 @@ mod tests {
         manager.add_collection(collection);
 
         // Activate collection
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Find route
@@ -395,7 +402,7 @@ mod tests {
         manager.add_collection(collection);
 
         // Activate collection
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Find route with matching params
@@ -448,7 +455,7 @@ mod tests {
         manager.add_collection(collection);
 
         // Activate collection
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Find route with matching headers
@@ -505,7 +512,7 @@ mod tests {
         manager.add_collection(collection);
 
         // Activate collection
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Find route with matching query
@@ -561,7 +568,7 @@ mod tests {
         manager.add_collection(collection);
 
         // Activate collection
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Find route with matching payload
@@ -611,7 +618,7 @@ mod tests {
         manager.add_collection(collection);
 
         // Activate collection
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Find route that doesn't exist
@@ -661,7 +668,7 @@ mod tests {
         manager.add_collection(collection2);
 
         // Activate first collection
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
         assert_eq!(controller.get_active_routes().len(), 1);
         assert_eq!(controller.get_active_routes()[0].route.id, "route1");
@@ -688,7 +695,7 @@ mod tests {
         };
         manager.add_collection(collection);
 
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         assert_eq!(controller.active_collection_id(), None);
         assert_eq!(controller.get_active_routes().len(), 0);
 
@@ -721,7 +728,7 @@ mod tests {
             routes: vec!["route1:preset1:variant1".to_string()],
         };
         manager.add_collection(collection);
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Try to find with HTTP transport
@@ -756,7 +763,7 @@ mod tests {
             routes: vec!["route1:preset1:variant1".to_string()],
         };
         manager.add_collection(collection);
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Request without method
@@ -791,7 +798,7 @@ mod tests {
             routes: vec!["route1:preset1:variant1".to_string()],
         };
         manager.add_collection(collection);
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Request with GET method
@@ -829,7 +836,7 @@ mod tests {
             routes: vec!["route1:preset1:variant1".to_string()],
         };
         manager.add_collection(collection);
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Request without payload
@@ -869,7 +876,7 @@ mod tests {
             routes: vec!["route1:preset1:variant1".to_string()],
         };
         manager.add_collection(collection);
-        let mut controller = ControllerManager::new(manager);
+        let mut controller = MocksController::new(manager);
         controller.use_collection("collection1").unwrap();
 
         // Find WebSocket route
