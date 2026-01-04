@@ -1,8 +1,10 @@
+//! Request matching preset types.
+
 use crate::types::variant::Variant;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Request matching preset with response variants
+/// Request matching preset with response variants.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Preset {
     /// Unique identifier for this preset within the route

@@ -4,8 +4,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 /// Check if subset JSON object is contained in target JSON object.
-/// Supports deep comparison of nested objects, arrays, and primitive types.
-/// Returns true if subset is None, Null, or empty object (matches any target).
 pub fn object_intersects(target: Option<&Value>, subset: Option<&Value>) -> bool {
     let subset = match subset {
         None | Some(Value::Null) => return true,
@@ -34,8 +32,6 @@ fn value_intersects(target: &Value, subset: &Value) -> bool {
 }
 
 /// Check if expected HashMap is contained in actual HashMap.
-/// Supports simple key-value matching with support for multiple comma-separated values.
-/// Returns true if expected is None or empty (matches any actual).
 pub fn hashmap_intersects(
     expected: Option<&HashMap<String, String>>,
     actual: Option<&HashMap<String, String>>,

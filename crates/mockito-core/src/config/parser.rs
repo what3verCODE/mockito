@@ -15,7 +15,7 @@ pub enum ConfigFileType {
     Unknown,
 }
 
-/// Get config file type from path extension
+/// Get config file type from path extension.
 pub fn get_file_type(path: &str) -> ConfigFileType {
     let ext = Path::new(path)
         .extension()
@@ -36,7 +36,7 @@ fn is_supported_config_file(path: &str) -> bool {
     !matches!(get_file_type(path), ConfigFileType::Unknown)
 }
 
-/// Strip comments from JSONC content
+/// Strip comments from JSONC content.
 pub fn strip_json_comments(content: &str) -> String {
     let mut result = String::with_capacity(content.len());
     let chars: Vec<char> = content.chars().collect();

@@ -1,7 +1,7 @@
 //! Mocks manager for managing routes and collections.
 //!
 //! This module provides `MocksManager` which stores and resolves collections and routes.
-//! It is used by `ControllerManager` for handling dynamic changes to mocked routes
+//! It is used by `MocksController` for handling dynamic changes to mocked routes
 //! from added collections/routes.
 
 use crate::types::collection::Collection;
@@ -11,6 +11,7 @@ use crate::types::variant::Variant;
 use std::collections::{HashMap, HashSet};
 
 /// Active route with selected preset and variant.
+///
 /// Represents a fully resolved route that can be used for mocking.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveRoute {
@@ -30,7 +31,7 @@ pub struct ActiveRoute {
 /// - Detecting circular dependencies
 /// - Merging routes (child collections override parent routes)
 ///
-/// This manager is used by `ControllerManager` to handle dynamic changes
+/// This manager is used by `MocksController` to handle dynamic changes
 /// to mocked routes from added collections/routes.
 #[derive(Debug, Clone)]
 pub struct MocksManager {
@@ -101,7 +102,10 @@ impl MocksManager {
         Ok(result)
     }
 
-    /// Recursively resolve collection with inheritance
+    /// Recursively resolve collection with inheritance support.
+    ///
+    /// Detects circular dependencies and resolves parent collections first.
+    /// Child routes override parent routes with the same route_id.
     fn resolve_collection_recursive(
         &self,
         collection_id: &str,
@@ -183,7 +187,9 @@ impl MocksManager {
         Ok(())
     }
 
-    /// Collect routes in order: parent first, then child (for proper override behavior)
+    /// Collect routes in order: parent first, then child.
+    ///
+    /// Child routes override parent routes with the same route_id.
     fn collect_routes_in_order(
         &self,
         collection_id: &str,
@@ -605,7 +611,7 @@ mod tests {
     #[rstest]
     fn test_resolve_collection_preset_not_found() {
         let mut manager = MocksManager::new();
-        let mut route = create_test_route("route1");
+        let route = create_test_route("route1");
         // Route has no presets
         manager.add_route(route);
 
@@ -628,7 +634,7 @@ mod tests {
     fn test_resolve_collection_variant_not_found() {
         let mut manager = MocksManager::new();
         let mut route = create_test_route("route1");
-        let mut preset = create_test_preset("preset1");
+        let preset = create_test_preset("preset1");
         // Preset has no variants
         route.presets.push(preset);
         manager.add_route(route);
