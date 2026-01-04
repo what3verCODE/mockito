@@ -29,26 +29,37 @@ importers:
       '@napi-rs/cli':
         specifier: ^3.5.1
         version: 3.5.1(@emnapi/runtime@1.8.0)(@types/node@25.0.3)
-
-  bindings/node_binding/npm/darwin-arm64: {}
-
-  bindings/node_binding/npm/darwin-x64: {}
-
-  bindings/node_binding/npm/linux-arm-gnueabihf: {}
-
-  bindings/node_binding/npm/linux-arm64-gnu: {}
-
-  bindings/node_binding/npm/linux-arm64-musl: {}
-
-  bindings/node_binding/npm/linux-x64-gnu: {}
-
-  bindings/node_binding/npm/linux-x64-musl: {}
-
-  bindings/node_binding/npm/win32-arm64-msvc: {}
-
-  bindings/node_binding/npm/win32-ia32-msvc: {}
-
-  bindings/node_binding/npm/win32-x64-msvc: {}
+    optionalDependencies:
+      '@mockito/binding-darwin-x64':
+        specifier: 0.1.0
+        version: link:./npm/darwin-x64
+      '@mockito/binding-win32-x64-msvc':
+        specifier: 0.1.0
+        version: link:./npm/win32-x64-msvc
+      '@mockito/binding-linux-x64-gnu':
+        specifier: 0.1.0
+        version: link:./npm/linux-x64-gnu
+      '@mockito/binding-linux-x64-musl':
+        specifier: 0.1.0
+        version: link:./npm/linux-x64-musl
+      '@mockito/binding-win32-ia32-msvc':
+        specifier: 0.1.0
+        version: link:./npm/win32-ia32-msvc
+      '@mockito/binding-linux-arm-gnueabihf':
+        specifier: 0.1.0
+        version: link:./npm/linux-arm-gnueabihf
+      '@mockito/binding-darwin-arm64':
+        specifier: 0.1.0
+        version: link:./npm/darwin-arm64
+      '@mockito/binding-linux-arm64-gnu':
+        specifier: 0.1.0
+        version: link:./npm/linux-arm64-gnu
+      '@mockito/binding-linux-arm64-musl':
+        specifier: 0.1.0
+        version: link:./npm/linux-arm64-musl
+      '@mockito/binding-win32-arm64-msvc':
+        specifier: 0.1.0
+        version: link:./npm/win32-arm64-msvc
 
   packages/mockito-core:
     dependencies:
@@ -2153,3 +2164,23 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@1.2.2: {}
+
+  '@mockito/binding-darwin-x64@0.1.0': {}
+
+  '@mockito/binding-win32-x64-msvc@0.1.0': {}
+
+  '@mockito/binding-linux-x64-gnu@0.1.0': {}
+
+  '@mockito/binding-linux-x64-musl@0.1.0': {}
+
+  '@mockito/binding-win32-ia32-msvc@0.1.0': {}
+
+  '@mockito/binding-linux-arm-gnueabihf@0.1.0': {}
+
+  '@mockito/binding-darwin-arm64@0.1.0': {}
+
+  '@mockito/binding-linux-arm64-gnu@0.1.0': {}
+
+  '@mockito/binding-linux-arm64-musl@0.1.0': {}
+
+  '@mockito/binding-win32-arm64-msvc@0.1.0': {}
