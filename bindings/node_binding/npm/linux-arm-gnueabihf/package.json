@@ -1,0 +1,23 @@
+{
+  "name": "@mockito/binding-linux-arm-gnueabihf",
+  "version": "0.1.0",
+  "cpu": [
+    "arm"
+  ],
+  "main": "mockito.linux-arm-gnueabihf.node",
+  "files": [
+    "mockito.linux-arm-gnueabihf.node"
+  ],
+  "description": "Node.js binding for creating mocks for testing and development",
+  "keywords": [
+    "mock",
+    "api",
+    "testing",
+    "development"
+  ],
+  "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ]
+}

@@ -55,7 +55,8 @@
       "!!**/target",
       "!!**/*.lock",
       "!!**/pnpm-lock.yaml",
-      "!!**/Cargo.lock"
+      "!!**/Cargo.lock",
+      "!!**/binding.*"
     ]
   }
 }

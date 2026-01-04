@@ -1,0 +1,51 @@
+{
+  "name": "@mockito/binding",
+  "version": "0.1.0",
+  "description": "Node.js binding for creating mocks for testing and development",
+  "keywords": [
+    "mock",
+    "api",
+    "testing",
+    "development"
+  ],
+  "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
+  "license": "MIT",
+  "main": "./binding.js",
+  "types": "./binding.d.ts",
+  "napi": {
+    "binaryName": "mockito",
+    "targets": [
+      "x86_64-apple-darwin",
+      "x86_64-pc-windows-msvc",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "i686-pc-windows-msvc",
+      "armv7-unknown-linux-gnueabihf",
+      "aarch64-apple-darwin",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-linux-musl",
+      "aarch64-pc-windows-msvc"
+    ]
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "prepack": "napi prepublish --tag-style npm --skip-optional-publish && node scripts/copy-readme.js",
+    "build": "napi build --manifest-path ../../crates/mockito-napi/Cargo.toml --const-enum --platform -p mockito-napi --js ./binding.js --dts ./binding.d.ts --release -o .",
+    "build:dev": "napi build --manifest-path ../../crates/mockito-napi/Cargo.toml --const-enum --platform -p mockito-napi --js ./binding.js --dts ./binding.d.ts -o ."
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.5.1"
+  },
+  "optionalDependencies": {
+    "@mockito/binding-darwin-x64": "0.1.0",
+    "@mockito/binding-win32-x64-msvc": "0.1.0",
+    "@mockito/binding-linux-x64-gnu": "0.1.0",
+    "@mockito/binding-linux-x64-musl": "0.1.0",
+    "@mockito/binding-win32-ia32-msvc": "0.1.0",
+    "@mockito/binding-linux-arm-gnueabihf": "0.1.0",
+    "@mockito/binding-darwin-arm64": "0.1.0",
+    "@mockito/binding-linux-arm64-gnu": "0.1.0",
+    "@mockito/binding-linux-arm64-musl": "0.1.0",
+    "@mockito/binding-win32-arm64-msvc": "0.1.0"
+  }
+}

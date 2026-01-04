@@ -1,0 +1,26 @@
+{
+  "name": "@mockito/binding-linux-x64-gnu",
+  "version": "0.1.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "mockito.linux-x64-gnu.node",
+  "files": [
+    "mockito.linux-x64-gnu.node"
+  ],
+  "description": "Node.js binding for creating mocks for testing and development",
+  "keywords": [
+    "mock",
+    "api",
+    "testing",
+    "development"
+  ],
+  "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "libc": [
+    "glibc"
+  ]
+}

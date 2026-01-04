@@ -1,0 +1,23 @@
+{
+  "name": "@mockito/binding-darwin-arm64",
+  "version": "0.1.0",
+  "cpu": [
+    "arm64"
+  ],
+  "main": "mockito.darwin-arm64.node",
+  "files": [
+    "mockito.darwin-arm64.node"
+  ],
+  "description": "Node.js binding for creating mocks for testing and development",
+  "keywords": [
+    "mock",
+    "api",
+    "testing",
+    "development"
+  ],
+  "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
+  "license": "MIT",
+  "os": [
+    "darwin"
+  ]
+}

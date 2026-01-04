@@ -10,6 +10,11 @@ authors = ["Aleksandr Nokhrin <nokhrin.alni@gmail.com>"]
 repository = "https://github.com/what3vercode/mockito"
 readme = "README.md"
 
+[workspace.dependencies]
+glob = "0.3.3"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.148"
+
 [profile.release]
 lto = true
 codegen-units = 1

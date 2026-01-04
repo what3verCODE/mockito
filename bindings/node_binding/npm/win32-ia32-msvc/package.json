@@ -1,0 +1,23 @@
+{
+  "name": "@mockito/binding-win32-ia32-msvc",
+  "version": "0.1.0",
+  "cpu": [
+    "ia32"
+  ],
+  "main": "mockito.win32-ia32-msvc.node",
+  "files": [
+    "mockito.win32-ia32-msvc.node"
+  ],
+  "description": "Node.js binding for creating mocks for testing and development",
+  "keywords": [
+    "mock",
+    "api",
+    "testing",
+    "development"
+  ],
+  "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
+  "license": "MIT",
+  "os": [
+    "win32"
+  ]
+}
