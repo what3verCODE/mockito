@@ -1,3 +1,5 @@
+import { version } from '@mockito/binding';
+
 export function test() {
-  return 'test';
+  return version();
 }

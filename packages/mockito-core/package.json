@@ -9,5 +9,8 @@
     "development"
   ],
   "author": "Aleksandr Nokhrin <nokhrin.alni@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@mockito/binding": "workspace:*"
+  }
 }
