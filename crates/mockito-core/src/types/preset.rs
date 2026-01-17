@@ -23,7 +23,7 @@ pub struct Preset {
     pub headers: Option<HashMap<String, String>>,
     /// Request body to match (for POST/PUT/PATCH)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload: Option<HashMap<String, serde_json::Value>>,
+    pub payload: Option<serde_json::Value>,
     /// JMESPath expression for complex body matching (alternative to payload)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub payload_expr: Option<String>,
@@ -57,11 +57,7 @@ mod tests {
                 map.insert("Authorization".to_string(), "Bearer token".to_string());
                 map
             }),
-            payload: Some({
-                let mut map = HashMap::new();
-                map.insert("name".to_string(), json!("John"));
-                map
-            }),
+            payload: Some(json!({"name": "John"})),
             payload_expr: None,
             query_expr: None,
             variants: vec![],
