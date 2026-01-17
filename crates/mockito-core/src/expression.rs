@@ -4,6 +4,11 @@ use jmespath::Variable;
 use serde_json::Value;
 use std::rc::Rc;
 
+/// Check if a string is an expression (starts with ${ and ends with })
+pub fn is_expression(s: &str) -> bool {
+    s.starts_with("${") && s.ends_with('}')
+}
+
 /// Convert serde_json::Value to jmespath::Variable.
 pub fn value_to_variable(value: &Value) -> Rc<Variable> {
     match value {
@@ -206,5 +211,20 @@ mod tests {
             ]
         });
         assert_eq!(evaluate_jmespath(expression, &data), expected);
+    }
+
+    #[rstest]
+    #[case("${expression}", true)]
+    #[case("${query.page == '1'}", true)]
+    #[case("${headers.myheader == 1}", true)]
+    #[case("${payload.items[0].id == 5}", true)]
+    #[case("expression", false)]
+    #[case("${expression", false)]
+    #[case("expression}", false)]
+    #[case("${}", true)]
+    #[case("", false)]
+    #[case("${expression} extra", false)]
+    fn test_is_expression(#[case] s: &str, #[case] expected: bool) {
+        assert_eq!(is_expression(s), expected);
     }
 }

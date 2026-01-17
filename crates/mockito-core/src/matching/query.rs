@@ -2,6 +2,7 @@
 
 use crate::expression::match_with_jmespath;
 use crate::matching::intersection::{hashmap_intersects, hashmap_to_value};
+use crate::types::preset::QueryOrExpression;
 use std::collections::HashMap;
 
 /// Parse query string into HashMap with URL decoding.
@@ -49,17 +50,23 @@ fn match_query_with_expression(expression: &str, query_params: &HashMap<String, 
 
 /// Match query parameters using either HashMap intersection or JMESPath expression.
 pub fn query_matches(
-    expected: Option<&HashMap<String, String>>,
-    query_expr: Option<&str>,
+    expected: Option<&QueryOrExpression>,
     actual: &HashMap<String, String>,
 ) -> bool {
-    // If expression is provided, use JMESPath
-    if let Some(expr) = query_expr {
-        return match_query_with_expression(expr, actual);
+    match expected {
+        Some(QueryOrExpression::Expression(expr)) => {
+            // Use JMESPath expression
+            match_query_with_expression(expr, actual)
+        }
+        Some(QueryOrExpression::Map(expected_map)) => {
+            // Use HashMap intersection
+            hashmap_intersects(Some(expected_map), Some(actual))
+        }
+        None => {
+            // No query specified = match any actual
+            true
+        }
     }
-
-    // Otherwise, use HashMap intersection
-    hashmap_intersects(expected, Some(actual))
 }
 
 #[cfg(test)]
@@ -129,24 +136,21 @@ mod tests {
 
     #[rstest]
     fn test_query_matches_hashmap() {
-        let expected = h(&[("page", "1")]);
+        let expected = QueryOrExpression::Map(h(&[("page", "1")]));
         let actual = h(&[("page", "1"), ("limit", "10")]);
-        assert!(query_matches(Some(&expected), None, &actual));
+        assert!(query_matches(Some(&expected), &actual));
     }
 
     #[rstest]
     fn test_query_matches_expression() {
         let actual = h(&[("page", "1"), ("limit", "10")]);
-        assert!(query_matches(
-            None,
-            Some("page == '1' && limit == '10'"),
-            &actual
-        ));
+        let expected = QueryOrExpression::Expression("page == '1' && limit == '10'".to_string());
+        assert!(query_matches(Some(&expected), &actual));
     }
 
     #[rstest]
     fn test_query_matches_no_expected() {
         let actual = h(&[("page", "1")]);
-        assert!(query_matches(None, None, &actual));
+        assert!(query_matches(None, &actual));
     }
 }

@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 /// Active route with selected preset and variant.
 ///
 /// Represents a fully resolved route that can be used for mocking.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ActiveRoute {
     /// Base route definition
     pub route: Route,
@@ -323,10 +323,8 @@ mod tests {
             id: id.to_string(),
             params: None,
             query: None,
-            query_expr: None,
             headers: None,
             payload: None,
-            payload_expr: None,
             variants: vec![],
         }
     }

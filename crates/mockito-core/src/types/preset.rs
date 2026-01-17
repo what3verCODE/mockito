@@ -1,32 +1,170 @@
 //! Request matching preset types.
 
+use crate::expression::is_expression;
 use crate::types::variant::Variant;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
 use std::collections::HashMap;
 
+/// Query parameters value - either a map or an expression string
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QueryOrExpression {
+    Map(HashMap<String, String>),
+    Expression(String),
+}
+
+impl Serialize for QueryOrExpression {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            QueryOrExpression::Map(map) => map.serialize(serializer),
+            QueryOrExpression::Expression(expr) => expr.serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for QueryOrExpression {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        match value {
+            Value::String(s) if is_expression(&s) => {
+                // Extract expression without ${}
+                let expr = s
+                    .strip_prefix("${")
+                    .and_then(|s| s.strip_suffix('}'))
+                    .unwrap_or(&s);
+                Ok(QueryOrExpression::Expression(expr.to_string()))
+            }
+            Value::Object(map) => {
+                let mut result = HashMap::new();
+                for (k, v) in map {
+                    if let Some(s) = v.as_str() {
+                        result.insert(k, s.to_string());
+                    }
+                }
+                Ok(QueryOrExpression::Map(result))
+            }
+            _ => Err(serde::de::Error::custom(
+                "Query must be either an object or an expression string",
+            )),
+        }
+    }
+}
+
+/// Headers value - either a map or an expression string
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HeadersOrExpression {
+    Map(HashMap<String, String>),
+    Expression(String),
+}
+
+impl Serialize for HeadersOrExpression {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            HeadersOrExpression::Map(map) => map.serialize(serializer),
+            HeadersOrExpression::Expression(expr) => expr.serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for HeadersOrExpression {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        match value {
+            Value::String(s) if is_expression(&s) => {
+                // Extract expression without ${}
+                let expr = s
+                    .strip_prefix("${")
+                    .and_then(|s| s.strip_suffix('}'))
+                    .unwrap_or(&s);
+                Ok(HeadersOrExpression::Expression(expr.to_string()))
+            }
+            Value::Object(map) => {
+                let mut result = HashMap::new();
+                for (k, v) in map {
+                    if let Some(s) = v.as_str() {
+                        result.insert(k, s.to_string());
+                    }
+                }
+                Ok(HeadersOrExpression::Map(result))
+            }
+            _ => Err(serde::de::Error::custom(
+                "Headers must be either an object or an expression string",
+            )),
+        }
+    }
+}
+
+/// Payload value - either a JSON value or an expression string
+#[derive(Debug, Clone, PartialEq)]
+pub enum PayloadOrExpression {
+    Value(Value),
+    Expression(String),
+}
+
+impl Serialize for PayloadOrExpression {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            PayloadOrExpression::Value(v) => v.serialize(serializer),
+            PayloadOrExpression::Expression(expr) => {
+                // Serialize as ${expr}
+                format!("${{{}}}", expr).serialize(serializer)
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PayloadOrExpression {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        match &value {
+            Value::String(s) if is_expression(s) => {
+                // Extract expression without ${}
+                let expr = s
+                    .strip_prefix("${")
+                    .and_then(|s| s.strip_suffix('}'))
+                    .unwrap_or(s);
+                Ok(PayloadOrExpression::Expression(expr.to_string()))
+            }
+            _ => Ok(PayloadOrExpression::Value(value)),
+        }
+    }
+}
+
 /// Request matching preset with response variants.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Preset {
     /// Unique identifier for this preset within the route
     pub id: String,
     /// URL path parameters to match
     #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<HashMap<String, String>>,
-    /// Query parameters to match
+    /// Query parameters to match (can be a map or expression string like "${query.page == '1'}")
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub query: Option<HashMap<String, String>>,
-    /// JMESPath expression for complex query parameter matching (alternative to query)
+    pub query: Option<QueryOrExpression>,
+    /// Request headers to match (can be a map or expression string like "${headers.myheader == 1}")
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub query_expr: Option<String>,
-    /// Request headers to match
+    pub headers: Option<HeadersOrExpression>,
+    /// Request body to match (can be any JSON value or expression string like "${payload.items[0].id == 5}")
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub headers: Option<HashMap<String, String>>,
-    /// Request body to match (for POST/PUT/PATCH)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload: Option<serde_json::Value>,
-    /// JMESPath expression for complex body matching (alternative to payload)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload_expr: Option<String>,
+    pub payload: Option<PayloadOrExpression>,
     /// Response variants
     pub variants: Vec<Variant>,
 }
@@ -47,19 +185,17 @@ mod tests {
                 map.insert("id".to_string(), "123".to_string());
                 map
             }),
-            query: Some({
+            query: Some(QueryOrExpression::Map({
                 let mut map = HashMap::new();
                 map.insert("page".to_string(), "1".to_string());
                 map
-            }),
-            headers: Some({
+            })),
+            headers: Some(HeadersOrExpression::Map({
                 let mut map = HashMap::new();
                 map.insert("Authorization".to_string(), "Bearer token".to_string());
                 map
-            }),
-            payload: Some(json!({"name": "John"})),
-            payload_expr: None,
-            query_expr: None,
+            })),
+            payload: Some(PayloadOrExpression::Value(json!({"name": "John"}))),
             variants: vec![],
         };
 
@@ -76,7 +212,6 @@ mod tests {
     #[rstest]
     #[case("params")]
     #[case("query")]
-    #[case("query_expr")]
     #[case("headers")]
     #[case("payload")]
     fn test_preset_optional_fields_omitted_when_none(#[case] field: &str) {
@@ -86,8 +221,6 @@ mod tests {
             query: None,
             headers: None,
             payload: None,
-            payload_expr: None,
-            query_expr: None,
             variants: vec![],
         };
 
@@ -124,8 +257,6 @@ mod tests {
             query: None,
             headers: None,
             payload: None,
-            payload_expr: None,
-            query_expr: None,
             variants: vec![variant],
         };
 
@@ -151,8 +282,6 @@ mod tests {
             query: None,
             headers: None,
             payload: None,
-            payload_expr: None,
-            query_expr: None,
             variants: vec![],
         };
 

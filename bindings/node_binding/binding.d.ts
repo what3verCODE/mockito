@@ -59,12 +59,13 @@ export declare const enum HttpMethod {
 export interface Preset {
   id: string
   variants: Array<Variant>
-  headers?: Record<string, string>
-  query?: Record<string, string>
-  queryExpr?: string
+  /** Headers to match (can be an object or expression string like "${headers.myheader == 1}") */
+  headers?: any
+  /** Query parameters to match (can be an object or expression string like "${query.page == '1'}") */
+  query?: any
   params?: Record<string, string>
+  /** Payload to match (can be any JSON value or expression string like "${payload.items[0].id == 5}") */
   payload?: any
-  payloadExpr?: string
 }
 
 /** Route definition */
