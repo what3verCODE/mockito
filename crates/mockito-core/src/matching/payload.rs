@@ -2,31 +2,29 @@
 
 use crate::expression::match_with_jmespath;
 use crate::matching::intersection::object_intersects;
+use crate::types::preset::PayloadOrExpression;
 use serde_json::Value;
 
 /// Match request payload using either object intersection or JMESPath expression.
-pub fn payload_matches(
-    payload: Option<&Value>,
-    payload_expr: Option<&str>,
-    actual: &Value,
-) -> bool {
-    // If expression is provided, use JMESPath
-    if let Some(expr) = payload_expr {
-        return match_with_jmespath(expr, actual);
-    }
-
-    // Otherwise, use object intersection or direct comparison
-    if let Some(expected) = payload {
-        // If both are objects, use object intersection
-        if expected.is_object() && actual.is_object() {
-            return object_intersects(Some(actual), Some(expected));
+pub fn payload_matches(payload: Option<&PayloadOrExpression>, actual: &Value) -> bool {
+    match payload {
+        Some(PayloadOrExpression::Expression(expr)) => {
+            // Use JMESPath expression
+            match_with_jmespath(expr, actual)
         }
-        // Otherwise, use direct equality comparison
-        return expected == actual;
+        Some(PayloadOrExpression::Value(expected)) => {
+            // Use object intersection or direct comparison
+            if expected.is_object() && actual.is_object() {
+                object_intersects(Some(actual), Some(expected))
+            } else {
+                expected == actual
+            }
+        }
+        None => {
+            // No payload specified = match any actual
+            true
+        }
     }
-
-    // No payload specified = match any actual
-    true
 }
 
 #[cfg(test)]
@@ -85,25 +83,22 @@ mod tests {
     #[rstest]
     fn test_payload_matches_object_notation() {
         let body = json!({"userId": 123, "name": "John"});
-        let payload = json!({"userId": 123});
+        let payload = PayloadOrExpression::Value(json!({"userId": 123}));
 
-        assert!(payload_matches(Some(&payload), None, &body));
+        assert!(payload_matches(Some(&payload), &body));
     }
 
     #[rstest]
     fn test_payload_matches_expression_notation() {
         let body = json!({"items": [{"id": 5}]});
-        assert!(payload_matches(
-            None,
-            Some("contains(items[*].id, `5`)"),
-            &body
-        ));
+        let payload = PayloadOrExpression::Expression("contains(items[*].id, `5`)".to_string());
+        assert!(payload_matches(Some(&payload), &body));
     }
 
     #[rstest]
     fn test_payload_matches_no_payload() {
         let body = json!({"any": "value"});
-        assert!(payload_matches(None, None, &body));
+        assert!(payload_matches(None, &body));
     }
 
     #[rstest]
@@ -161,47 +156,47 @@ mod tests {
     #[rstest]
     fn test_payload_matches_string() {
         let body = json!("test");
-        let payload = json!("test");
-        assert!(payload_matches(Some(&payload), None, &body));
+        let payload = PayloadOrExpression::Value(json!("test"));
+        assert!(payload_matches(Some(&payload), &body));
 
-        let payload_different = json!("different");
-        assert!(!payload_matches(Some(&payload_different), None, &body));
+        let payload_different = PayloadOrExpression::Value(json!("different"));
+        assert!(!payload_matches(Some(&payload_different), &body));
     }
 
     #[rstest]
     fn test_payload_matches_number() {
         let body = json!(42);
-        let payload = json!(42);
-        assert!(payload_matches(Some(&payload), None, &body));
+        let payload = PayloadOrExpression::Value(json!(42));
+        assert!(payload_matches(Some(&payload), &body));
 
-        let payload_different = json!(100);
-        assert!(!payload_matches(Some(&payload_different), None, &body));
+        let payload_different = PayloadOrExpression::Value(json!(100));
+        assert!(!payload_matches(Some(&payload_different), &body));
     }
 
     #[rstest]
     fn test_payload_matches_array() {
         let body = json!([1, 2, 3]);
-        let payload = json!([1, 2, 3]);
-        assert!(payload_matches(Some(&payload), None, &body));
+        let payload = PayloadOrExpression::Value(json!([1, 2, 3]));
+        assert!(payload_matches(Some(&payload), &body));
 
-        let payload_different = json!([4, 5, 6]);
-        assert!(!payload_matches(Some(&payload_different), None, &body));
+        let payload_different = PayloadOrExpression::Value(json!([4, 5, 6]));
+        assert!(!payload_matches(Some(&payload_different), &body));
     }
 
     #[rstest]
     fn test_payload_matches_boolean() {
         let body = json!(true);
-        let payload = json!(true);
-        assert!(payload_matches(Some(&payload), None, &body));
+        let payload = PayloadOrExpression::Value(json!(true));
+        assert!(payload_matches(Some(&payload), &body));
 
-        let payload_different = json!(false);
-        assert!(!payload_matches(Some(&payload_different), None, &body));
+        let payload_different = PayloadOrExpression::Value(json!(false));
+        assert!(!payload_matches(Some(&payload_different), &body));
     }
 
     #[rstest]
     fn test_payload_matches_null() {
         let body = json!(null);
-        let payload = json!(null);
-        assert!(payload_matches(Some(&payload), None, &body));
+        let payload = PayloadOrExpression::Value(json!(null));
+        assert!(payload_matches(Some(&payload), &body));
     }
 }

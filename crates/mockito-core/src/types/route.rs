@@ -25,7 +25,7 @@ pub enum HttpMethod {
 }
 
 /// Mock route definition.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Route {
     /// Unique identifier for this route
     pub id: String,

@@ -1,12 +1,14 @@
 //! Config parsing bindings for Node.js.
 
+use mockito_core::expression::is_expression;
 use mockito_core::types::{
     collection::Collection as CoreCollection,
-    preset::Preset as CorePreset,
+    preset::{HeadersOrExpression, PayloadOrExpression, Preset as CorePreset, QueryOrExpression},
     route::{HttpMethod as CoreHttpMethod, Route as CoreRoute, Transport as CoreTransport},
     variant::Variant as CoreVariant,
 };
 use napi_derive::napi;
+use serde_json::Value;
 use std::collections::HashMap;
 
 /// Transport type for route matching
@@ -114,12 +116,13 @@ impl From<&CoreVariant> for Variant {
 pub struct Preset {
     pub id: String,
     pub variants: Vec<Variant>,
-    pub headers: Option<HashMap<String, String>>,
-    pub query: Option<HashMap<String, String>>,
-    pub query_expr: Option<String>,
+    /// Headers to match (can be an object or expression string like "${headers.myheader == 1}")
+    pub headers: Option<serde_json::Value>,
+    /// Query parameters to match (can be an object or expression string like "${query.page == '1'}")
+    pub query: Option<serde_json::Value>,
     pub params: Option<HashMap<String, String>>,
+    /// Payload to match (can be any JSON value or expression string like "${payload.items[0].id == 5}")
     pub payload: Option<serde_json::Value>,
-    pub payload_expr: Option<String>,
 }
 
 impl From<CorePreset> for Preset {
@@ -127,12 +130,19 @@ impl From<CorePreset> for Preset {
         Self {
             id: p.id,
             variants: p.variants.into_iter().map(Variant::from).collect(),
-            headers: p.headers,
-            query: p.query,
-            query_expr: p.query_expr,
+            headers: p.headers.map(|h| match h {
+                HeadersOrExpression::Map(map) => serde_json::to_value(map).unwrap_or(Value::Null),
+                HeadersOrExpression::Expression(expr) => Value::String(format!("${{{}}}", expr)),
+            }),
+            query: p.query.map(|q| match q {
+                QueryOrExpression::Map(map) => serde_json::to_value(map).unwrap_or(Value::Null),
+                QueryOrExpression::Expression(expr) => Value::String(format!("${{{}}}", expr)),
+            }),
             params: p.params,
-            payload: p.payload,
-            payload_expr: p.payload_expr,
+            payload: p.payload.map(|p| match p {
+                PayloadOrExpression::Value(v) => v,
+                PayloadOrExpression::Expression(expr) => Value::String(format!("${{{}}}", expr)),
+            }),
         }
     }
 }
@@ -142,12 +152,19 @@ impl From<&CorePreset> for Preset {
         Self {
             id: p.id.clone(),
             variants: p.variants.iter().map(Variant::from).collect(),
-            headers: p.headers.clone(),
-            query: p.query.clone(),
-            query_expr: p.query_expr.clone(),
+            headers: p.headers.as_ref().map(|h| match h {
+                HeadersOrExpression::Map(map) => serde_json::to_value(map).unwrap_or(Value::Null),
+                HeadersOrExpression::Expression(expr) => Value::String(format!("${{{}}}", expr)),
+            }),
+            query: p.query.as_ref().map(|q| match q {
+                QueryOrExpression::Map(map) => serde_json::to_value(map).unwrap_or(Value::Null),
+                QueryOrExpression::Expression(expr) => Value::String(format!("${{{}}}", expr)),
+            }),
             params: p.params.clone(),
-            payload: p.payload.clone(),
-            payload_expr: p.payload_expr.clone(),
+            payload: p.payload.as_ref().map(|p| match p {
+                PayloadOrExpression::Value(v) => v.clone(),
+                PayloadOrExpression::Expression(expr) => Value::String(format!("${{{}}}", expr)),
+            }),
         }
     }
 }
@@ -218,12 +235,51 @@ impl From<Preset> for CorePreset {
         Self {
             id: p.id,
             variants: p.variants.into_iter().map(CoreVariant::from).collect(),
-            headers: p.headers,
-            query: p.query,
-            query_expr: p.query_expr,
+            headers: p.headers.map(|v| {
+                if let Value::String(s) = &v {
+                    if is_expression(s) {
+                        let expr = s
+                            .strip_prefix("${")
+                            .and_then(|s| s.strip_suffix('}'))
+                            .unwrap_or(s);
+                        return HeadersOrExpression::Expression(expr.to_string());
+                    }
+                }
+                if let Ok(map) = serde_json::from_value::<HashMap<String, String>>(v) {
+                    HeadersOrExpression::Map(map)
+                } else {
+                    HeadersOrExpression::Map(HashMap::new())
+                }
+            }),
+            query: p.query.map(|v| {
+                if let Value::String(s) = &v {
+                    if is_expression(s) {
+                        let expr = s
+                            .strip_prefix("${")
+                            .and_then(|s| s.strip_suffix('}'))
+                            .unwrap_or(s);
+                        return QueryOrExpression::Expression(expr.to_string());
+                    }
+                }
+                if let Ok(map) = serde_json::from_value::<HashMap<String, String>>(v) {
+                    QueryOrExpression::Map(map)
+                } else {
+                    QueryOrExpression::Map(HashMap::new())
+                }
+            }),
             params: p.params,
-            payload: p.payload,
-            payload_expr: p.payload_expr,
+            payload: p.payload.map(|v| {
+                if let Value::String(s) = &v {
+                    if is_expression(s) {
+                        let expr = s
+                            .strip_prefix("${")
+                            .and_then(|s| s.strip_suffix('}'))
+                            .unwrap_or(s);
+                        return PayloadOrExpression::Expression(expr.to_string());
+                    }
+                }
+                PayloadOrExpression::Value(v)
+            }),
         }
     }
 }
@@ -233,12 +289,51 @@ impl From<&Preset> for CorePreset {
         Self {
             id: p.id.clone(),
             variants: p.variants.iter().map(CoreVariant::from).collect(),
-            headers: p.headers.clone(),
-            query: p.query.clone(),
-            query_expr: p.query_expr.clone(),
+            headers: p.headers.as_ref().map(|v| {
+                if let Value::String(s) = v {
+                    if is_expression(s) {
+                        let expr = s
+                            .strip_prefix("${")
+                            .and_then(|s| s.strip_suffix('}'))
+                            .unwrap_or(s);
+                        return HeadersOrExpression::Expression(expr.to_string());
+                    }
+                }
+                if let Ok(map) = serde_json::from_value::<HashMap<String, String>>(v.clone()) {
+                    HeadersOrExpression::Map(map)
+                } else {
+                    HeadersOrExpression::Map(HashMap::new())
+                }
+            }),
+            query: p.query.as_ref().map(|v| {
+                if let Value::String(s) = v {
+                    if is_expression(s) {
+                        let expr = s
+                            .strip_prefix("${")
+                            .and_then(|s| s.strip_suffix('}'))
+                            .unwrap_or(s);
+                        return QueryOrExpression::Expression(expr.to_string());
+                    }
+                }
+                if let Ok(map) = serde_json::from_value::<HashMap<String, String>>(v.clone()) {
+                    QueryOrExpression::Map(map)
+                } else {
+                    QueryOrExpression::Map(HashMap::new())
+                }
+            }),
             params: p.params.clone(),
-            payload: p.payload.clone(),
-            payload_expr: p.payload_expr.clone(),
+            payload: p.payload.as_ref().map(|v| {
+                if let Value::String(s) = v {
+                    if is_expression(s) {
+                        let expr = s
+                            .strip_prefix("${")
+                            .and_then(|s| s.strip_suffix('}'))
+                            .unwrap_or(s);
+                        return PayloadOrExpression::Expression(expr.to_string());
+                    }
+                }
+                PayloadOrExpression::Value(v.clone())
+            }),
         }
     }
 }

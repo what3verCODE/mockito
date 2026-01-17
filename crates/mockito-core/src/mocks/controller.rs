@@ -4,7 +4,7 @@
 //! and provides fast route lookup by request matching.
 
 use crate::matching::{
-    headers_intersects, parse_query_string, payload_matches, query_matches, url_matches,
+    headers_matches, parse_query_string, payload_matches, query_matches, url_matches,
 };
 use crate::mocks::manager::{ActiveRoute, MocksManager, ResolveError};
 use crate::types::preset::Preset;
@@ -145,7 +145,9 @@ impl MocksController {
         }
 
         // Check headers
-        if !headers_intersects(request.headers.as_ref(), preset.headers.as_ref()) {
+        let empty_headers = HashMap::new();
+        let request_headers = request.headers.as_ref().unwrap_or(&empty_headers);
+        if !headers_matches(preset.headers.as_ref(), request_headers) {
             return false;
         }
 
@@ -167,11 +169,7 @@ impl MocksController {
             return self.check_payload(preset, &request.payload);
         };
 
-        if !query_matches(
-            preset.query.as_ref(),
-            preset.query_expr.as_deref(),
-            request_query,
-        ) {
+        if !query_matches(preset.query.as_ref(), request_query) {
             return false;
         }
 
@@ -186,11 +184,7 @@ impl MocksController {
         parsed_query: Option<&HashMap<String, String>>,
     ) -> bool {
         let empty_query = HashMap::new();
-        query_matches(
-            preset.query.as_ref(),
-            preset.query_expr.as_deref(),
-            parsed_query.unwrap_or(&empty_query),
-        )
+        query_matches(preset.query.as_ref(), parsed_query.unwrap_or(&empty_query))
     }
 
     /// Check request payload/body.
@@ -198,12 +192,8 @@ impl MocksController {
     /// Returns `false` if preset expects payload but request doesn't have it.
     fn check_payload(&self, preset: &Preset, request_payload: &Option<Value>) -> bool {
         if let Some(request_payload) = request_payload {
-            payload_matches(
-                preset.payload.as_ref(),
-                preset.payload_expr.as_deref(),
-                request_payload,
-            )
-        } else if preset.payload.is_some() || preset.payload_expr.is_some() {
+            payload_matches(preset.payload.as_ref(), request_payload)
+        } else if preset.payload.is_some() {
             // Preset expects payload but request doesn't have it
             false
         } else {
@@ -216,7 +206,9 @@ impl MocksController {
 mod tests {
     use super::*;
     use crate::types::collection::Collection;
-    use crate::types::preset::Preset;
+    use crate::types::preset::{
+        HeadersOrExpression, PayloadOrExpression, Preset, QueryOrExpression,
+    };
     use crate::types::route::{HttpMethod, Route, Transport};
     use crate::types::variant::Variant;
     use rstest::rstest;
@@ -238,10 +230,8 @@ mod tests {
             id: id.to_string(),
             params: None,
             query: None,
-            query_expr: None,
             headers: None,
             payload: None,
-            payload_expr: None,
             variants: vec![],
         }
     }
@@ -441,7 +431,7 @@ mod tests {
         let mut preset = create_test_preset("preset1");
         let mut headers = HashMap::new();
         headers.insert("Authorization".to_string(), "Bearer token".to_string());
-        preset.headers = Some(headers);
+        preset.headers = Some(HeadersOrExpression::Map(headers));
         preset.variants.push(create_test_variant("variant1"));
         route.presets.push(preset);
         manager.add_route(route);
@@ -498,7 +488,7 @@ mod tests {
         let mut preset = create_test_preset("preset1");
         let mut query = HashMap::new();
         query.insert("page".to_string(), "1".to_string());
-        preset.query = Some(query);
+        preset.query = Some(QueryOrExpression::Map(query));
         preset.variants.push(create_test_variant("variant1"));
         route.presets.push(preset);
         manager.add_route(route);
@@ -552,7 +542,7 @@ mod tests {
         let mut route = create_test_route("route1", "/api/users");
         route.method = Some(HttpMethod::Post);
         let mut preset = create_test_preset("preset1");
-        preset.payload = Some(json!({"name": "John"}));
+        preset.payload = Some(PayloadOrExpression::Value(json!({"name": "John"})));
         preset.variants.push(create_test_variant("variant1"));
         route.presets.push(preset);
         manager.add_route(route);
@@ -821,7 +811,7 @@ mod tests {
         let mut route = create_test_route("route1", "/api/users");
         route.method = Some(HttpMethod::Post);
         let mut preset = create_test_preset("preset1");
-        preset.payload = Some(json!({"name": "John"}));
+        preset.payload = Some(PayloadOrExpression::Value(json!({"name": "John"})));
         preset.variants.push(create_test_variant("variant1"));
         route.presets.push(preset);
         manager.add_route(route);
