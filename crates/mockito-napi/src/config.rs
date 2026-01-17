@@ -131,9 +131,7 @@ impl From<CorePreset> for Preset {
             query: p.query,
             query_expr: p.query_expr,
             params: p.params,
-            payload: p
-                .payload
-                .map(|h| serde_json::to_value(h).unwrap_or_default()),
+            payload: p.payload,
             payload_expr: p.payload_expr,
         }
     }
@@ -148,10 +146,7 @@ impl From<&CorePreset> for Preset {
             query: p.query.clone(),
             query_expr: p.query_expr.clone(),
             params: p.params.clone(),
-            payload: p
-                .payload
-                .as_ref()
-                .map(|h| serde_json::to_value(h).unwrap_or_default()),
+            payload: p.payload.clone(),
             payload_expr: p.payload_expr.clone(),
         }
     }
@@ -227,7 +222,7 @@ impl From<Preset> for CorePreset {
             query: p.query,
             query_expr: p.query_expr,
             params: p.params,
-            payload: p.payload.and_then(|v| serde_json::from_value(v).ok()),
+            payload: p.payload,
             payload_expr: p.payload_expr,
         }
     }
@@ -242,10 +237,7 @@ impl From<&Preset> for CorePreset {
             query: p.query.clone(),
             query_expr: p.query_expr.clone(),
             params: p.params.clone(),
-            payload: p
-                .payload
-                .as_ref()
-                .and_then(|v| serde_json::from_value(v.clone()).ok()),
+            payload: p.payload.clone(),
             payload_expr: p.payload_expr.clone(),
         }
     }

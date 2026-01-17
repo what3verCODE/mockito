@@ -552,9 +552,7 @@ mod tests {
         let mut route = create_test_route("route1", "/api/users");
         route.method = Some(HttpMethod::Post);
         let mut preset = create_test_preset("preset1");
-        let mut payload = HashMap::new();
-        payload.insert("name".to_string(), json!("John"));
-        preset.payload = Some(payload);
+        preset.payload = Some(json!({"name": "John"}));
         preset.variants.push(create_test_variant("variant1"));
         route.presets.push(preset);
         manager.add_route(route);
@@ -823,9 +821,7 @@ mod tests {
         let mut route = create_test_route("route1", "/api/users");
         route.method = Some(HttpMethod::Post);
         let mut preset = create_test_preset("preset1");
-        let mut payload = HashMap::new();
-        payload.insert("name".to_string(), json!("John"));
-        preset.payload = Some(payload);
+        preset.payload = Some(json!({"name": "John"}));
         preset.variants.push(create_test_variant("variant1"));
         route.presets.push(preset);
         manager.add_route(route);

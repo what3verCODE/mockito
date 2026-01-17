@@ -3,11 +3,10 @@
 use crate::expression::match_with_jmespath;
 use crate::matching::intersection::object_intersects;
 use serde_json::Value;
-use std::collections::HashMap;
 
 /// Match request payload using either object intersection or JMESPath expression.
 pub fn payload_matches(
-    payload: Option<&HashMap<String, Value>>,
+    payload: Option<&Value>,
     payload_expr: Option<&str>,
     actual: &Value,
 ) -> bool {
@@ -16,10 +15,14 @@ pub fn payload_matches(
         return match_with_jmespath(expr, actual);
     }
 
-    // Otherwise, use object intersection
+    // Otherwise, use object intersection or direct comparison
     if let Some(expected) = payload {
-        let expected_value = serde_json::to_value(expected).unwrap_or(Value::Null);
-        return object_intersects(Some(actual), Some(&expected_value));
+        // If both are objects, use object intersection
+        if expected.is_object() && actual.is_object() {
+            return object_intersects(Some(actual), Some(expected));
+        }
+        // Otherwise, use direct equality comparison
+        return expected == actual;
     }
 
     // No payload specified = match any actual
@@ -82,8 +85,7 @@ mod tests {
     #[rstest]
     fn test_payload_matches_object_notation() {
         let body = json!({"userId": 123, "name": "John"});
-        let mut payload = HashMap::new();
-        payload.insert("userId".to_string(), json!(123));
+        let payload = json!({"userId": 123});
 
         assert!(payload_matches(Some(&payload), None, &body));
     }
@@ -154,5 +156,52 @@ mod tests {
 
         let body_empty = json!({"user": {}});
         assert!(!match_with_jmespath("user", &body_empty));
+    }
+
+    #[rstest]
+    fn test_payload_matches_string() {
+        let body = json!("test");
+        let payload = json!("test");
+        assert!(payload_matches(Some(&payload), None, &body));
+
+        let payload_different = json!("different");
+        assert!(!payload_matches(Some(&payload_different), None, &body));
+    }
+
+    #[rstest]
+    fn test_payload_matches_number() {
+        let body = json!(42);
+        let payload = json!(42);
+        assert!(payload_matches(Some(&payload), None, &body));
+
+        let payload_different = json!(100);
+        assert!(!payload_matches(Some(&payload_different), None, &body));
+    }
+
+    #[rstest]
+    fn test_payload_matches_array() {
+        let body = json!([1, 2, 3]);
+        let payload = json!([1, 2, 3]);
+        assert!(payload_matches(Some(&payload), None, &body));
+
+        let payload_different = json!([4, 5, 6]);
+        assert!(!payload_matches(Some(&payload_different), None, &body));
+    }
+
+    #[rstest]
+    fn test_payload_matches_boolean() {
+        let body = json!(true);
+        let payload = json!(true);
+        assert!(payload_matches(Some(&payload), None, &body));
+
+        let payload_different = json!(false);
+        assert!(!payload_matches(Some(&payload_different), None, &body));
+    }
+
+    #[rstest]
+    fn test_payload_matches_null() {
+        let body = json!(null);
+        let payload = json!(null);
+        assert!(payload_matches(Some(&payload), None, &body));
     }
 }
