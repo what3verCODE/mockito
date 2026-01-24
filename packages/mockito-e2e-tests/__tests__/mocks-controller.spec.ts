@@ -508,6 +508,152 @@ describe('MocksController', () => {
 
             expect(currentUsersVariant).toBe(initialUsersVariant);
         });
+
+        /**
+         * Tests that useRoutes throws error for WebSocket routes.
+         * @see example/mocker/__specs__/controller.spec.ts - "should throw if route is a websocket route"
+         */
+        it('should throw error for WebSocket route', () => {
+            expect(() => controller.useRoutes(['ws-notifications:default:message'])).toThrow(
+                /Use 'useSocket' instead/
+            );
+        });
+    });
+
+    describe('useSocket', () => {
+        /**
+         * Tests basic WebSocket route switching.
+         * @see example/mocker/__specs__/controller.spec.ts - "should pass parser url for websocket route"
+         */
+        it('should switch WebSocket route', () => {
+            // Use socket route directly
+            controller.useSocket(['ws-notifications:default:message']);
+
+            const routes = controller.getActiveRoutes();
+            expect(routes).toHaveLength(1);
+            expect(routes[0]?.route.id).toBe('ws-notifications');
+            expect(routes[0]?.route.transport).toBe(Transport.WebSocket);
+        });
+
+        /**
+         * Tests switching WebSocket variant.
+         */
+        it('should switch WebSocket route variant', () => {
+            controller.useCollection('with-websocket');
+
+            const initialRoutes = controller.getActiveRoutes();
+            expect(initialRoutes[0]?.variant.id).toBe('message');
+
+            // Switch to ws-chat which has different variants
+            controller.useSocket(['ws-chat:default:connected']);
+
+            const routes = controller.getActiveRoutes();
+            const wsChat = routes.find(r => r.route.id === 'ws-chat');
+            expect(wsChat?.variant.id).toBe('connected');
+        });
+
+        /**
+         * Tests merging WebSocket routes with existing routes.
+         */
+        it('should merge WebSocket routes with existing routes', () => {
+            controller.useCollection('with-websocket');
+
+            // Initial: 1 WebSocket route
+            expect(controller.getActiveRoutes()).toHaveLength(1);
+
+            // Add another WebSocket route
+            controller.useSocket(['ws-chat:default:message']);
+
+            expect(controller.getActiveRoutes()).toHaveLength(2);
+            const routeIds = controller.getActiveRoutes().map(r => r.route.id);
+            expect(routeIds).toContain('ws-notifications');
+            expect(routeIds).toContain('ws-chat');
+        });
+
+        /**
+         * Tests error when trying to use HTTP route with useSocket.
+         * @see example/mocker/__specs__/controller.spec.ts - "should throw if route is not a websocket route"
+         */
+        it('should throw error for HTTP route', () => {
+            expect(() => controller.useSocket(['users-api:success:default'])).toThrow(
+                /Use 'useRoutes' instead/
+            );
+        });
+
+        /**
+         * Tests error when WebSocket route not found.
+         * @see example/mocker/__specs__/controller.spec.ts - "should throw if websocket route not found"
+         */
+        it('should throw error if route not found', () => {
+            expect(() => controller.useSocket(['nonexistent:preset:variant'])).toThrow();
+        });
+
+        /**
+         * Tests error when preset not found.
+         * @see example/mocker/__specs__/controller.spec.ts - "should throw if preset for websocket route not found"
+         */
+        it('should throw error if preset not found', () => {
+            expect(() => controller.useSocket(['ws-notifications:nonexistent-preset:message'])).toThrow();
+        });
+
+        /**
+         * Tests error when variant not found.
+         * @see example/mocker/__specs__/controller.spec.ts - "should throw if variant for websocket route not found"
+         */
+        it('should throw error if variant not found', () => {
+            expect(() => controller.useSocket(['ws-notifications:default:nonexistent-variant'])).toThrow();
+        });
+
+        /**
+         * Tests fail-fast behavior for useSocket.
+         */
+        it('should fail fast and not apply partial changes', () => {
+            controller.useSocket(['ws-notifications:default:message']);
+
+            const initialRoutes = controller.getActiveRoutes();
+            expect(initialRoutes).toHaveLength(1);
+
+            // First route is valid, second is invalid
+            expect(() => controller.useSocket([
+                'ws-chat:default:message',
+                'nonexistent:preset:variant'
+            ])).toThrow();
+
+            // Routes should remain unchanged
+            expect(controller.getActiveRoutes()).toHaveLength(1);
+            expect(controller.getActiveRoutes()[0]?.route.id).toBe('ws-notifications');
+        });
+
+        /**
+         * Tests useSocket without selecting a collection first.
+         */
+        it('should work without collection selected', () => {
+            // No collection selected
+            expect(controller.getActiveRoutes()).toHaveLength(0);
+
+            // Add WebSocket route directly
+            controller.useSocket(['ws-notifications:default:message']);
+
+            expect(controller.getActiveRoutes()).toHaveLength(1);
+            expect(controller.getActiveRoutes()[0]?.route.transport).toBe(Transport.WebSocket);
+        });
+
+        /**
+         * Tests handling multiple WebSocket routes in single call.
+         */
+        it('should handle multiple routes in single call', () => {
+            controller.useSocket([
+                'ws-notifications:default:message',
+                'ws-chat:default:connected'
+            ]);
+
+            const routes = controller.getActiveRoutes();
+            expect(routes).toHaveLength(2);
+
+            const routeIds = routes.map(r => r.route.id);
+            expect(routeIds).toContain('ws-notifications');
+            expect(routeIds).toContain('ws-chat');
+        });
     });
 
     /**
@@ -517,11 +663,6 @@ describe('MocksController', () => {
      * @see example/mocker/__specs__/controller.spec.ts for original test cases
      */
     describe('TODO: features to implement', () => {
-        /**
-         * @see example/mocker/__specs__/controller.spec.ts - "should throw if route is a websocket route"
-         */
-        it.todo('should support useSocket for WebSocket-only route switching');
-
         /**
          * @see example/mocker/controller.ts - getWebSocket method
          */

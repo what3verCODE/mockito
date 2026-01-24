@@ -71,7 +71,7 @@ impl MocksController {
         Ok(())
     }
 
-    /// Apply specific routes without changing the entire collection.
+    /// Apply specific HTTP routes without changing the entire collection.
     ///
     /// This method allows dynamic route switching by:
     /// - Resolving provided route references (`route:preset:variant`)
@@ -82,7 +82,9 @@ impl MocksController {
     /// * `routes` - Array of route reference strings in format `route_id:preset_id:variant_id`
     ///
     /// # Errors
-    /// Returns error if route, preset, or variant not found.
+    /// Returns error if:
+    /// - Route, preset, or variant not found
+    /// - Route is a WebSocket route (use `use_socket` instead)
     ///
     /// # Example
     /// ```ignore
@@ -93,7 +95,53 @@ impl MocksController {
         // Resolve all new routes first (fail fast if any route is invalid)
         let mut new_routes: Vec<ActiveRoute> = Vec::with_capacity(routes.len());
         for route_ref in routes {
-            let active_route = self.mocks_manager.resolve_route_reference(route_ref)?;
+            let active_route = self.mocks_manager.resolve_http_route_reference(route_ref)?;
+            new_routes.push(active_route);
+        }
+
+        // Build a set of new route IDs for quick lookup
+        let new_route_ids: std::collections::HashSet<&str> =
+            new_routes.iter().map(|r| r.route.id.as_str()).collect();
+
+        // Merge: keep existing routes that are not overridden, then add new routes
+        let mut merged_routes: Vec<ActiveRoute> = self
+            .cached_active_routes
+            .iter()
+            .filter(|existing| !new_route_ids.contains(existing.route.id.as_str()))
+            .cloned()
+            .collect();
+
+        merged_routes.extend(new_routes);
+
+        self.cached_active_routes = merged_routes;
+        Ok(())
+    }
+
+    /// Apply specific WebSocket routes without changing the entire collection.
+    ///
+    /// This method allows dynamic WebSocket route switching by:
+    /// - Resolving provided route references (`route:preset:variant`)
+    /// - Merging them with existing active routes
+    /// - Overriding routes with the same route ID
+    ///
+    /// # Arguments
+    /// * `routes` - Array of route reference strings in format `route_id:preset_id:variant_id`
+    ///
+    /// # Errors
+    /// Returns error if:
+    /// - Route, preset, or variant not found
+    /// - Route is not a WebSocket route (use `use_routes` instead)
+    ///
+    /// # Example
+    /// ```ignore
+    /// controller.use_collection("base")?;
+    /// controller.use_socket(&["ws-notifications:default:message"])?;
+    /// ```
+    pub fn use_socket(&mut self, routes: &[String]) -> Result<(), ResolveError> {
+        // Resolve all new routes first (fail fast if any route is invalid)
+        let mut new_routes: Vec<ActiveRoute> = Vec::with_capacity(routes.len());
+        for route_ref in routes {
+            let active_route = self.mocks_manager.resolve_websocket_route_reference(route_ref)?;
             new_routes.push(active_route);
         }
 
@@ -1229,5 +1277,290 @@ mod tests {
         // Original routes should remain unchanged (fail fast)
         assert_eq!(controller.get_active_routes().len(), 1);
         assert_eq!(controller.get_active_routes()[0].route.id, "route1");
+    }
+
+    #[rstest]
+    fn test_use_routes_rejects_websocket_route() {
+        let mut manager = MocksManager::new();
+
+        // Create WebSocket route
+        let mut ws_route = Route {
+            id: "ws-route".to_string(),
+            url: "/ws".to_string(),
+            transport: Transport::WebSocket,
+            method: None,
+            presets: vec![],
+        };
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        ws_route.presets.push(preset);
+        manager.add_route(ws_route);
+
+        let mut controller = MocksController::new(manager);
+
+        // Try to use WebSocket route with use_routes (should fail)
+        let result = controller.use_routes(&["ws-route:preset1:variant1".to_string()]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ResolveError::TransportMismatch { .. }
+        ));
+    }
+
+    // ============ use_socket tests ============
+
+    fn create_test_ws_route(id: &str, url: &str) -> Route {
+        Route {
+            id: id.to_string(),
+            url: url.to_string(),
+            transport: Transport::WebSocket,
+            method: None,
+            presets: vec![],
+        }
+    }
+
+    #[rstest]
+    fn test_use_socket_basic() {
+        let mut manager = MocksManager::new();
+
+        let mut ws_route = create_test_ws_route("ws-route", "/ws/notifications");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        ws_route.presets.push(preset);
+        manager.add_route(ws_route);
+
+        let mut controller = MocksController::new(manager);
+
+        // Use socket route
+        controller
+            .use_socket(&["ws-route:preset1:variant1".to_string()])
+            .unwrap();
+
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].route.id, "ws-route");
+        assert_eq!(
+            controller.get_active_routes()[0].route.transport,
+            Transport::WebSocket
+        );
+    }
+
+    #[rstest]
+    fn test_use_socket_switches_variant() {
+        let mut manager = MocksManager::new();
+
+        // Create WebSocket route with two variants
+        let mut ws_route = create_test_ws_route("ws-route", "/ws");
+        let mut preset = create_test_preset("default");
+        preset.variants.push(create_test_variant("message"));
+        preset.variants.push(create_test_variant("error"));
+        ws_route.presets.push(preset);
+        manager.add_route(ws_route);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["ws-route:default:message".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Initial state
+        assert_eq!(controller.get_active_routes()[0].variant.id, "message");
+
+        // Switch to error variant
+        controller
+            .use_socket(&["ws-route:default:error".to_string()])
+            .unwrap();
+
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].variant.id, "error");
+    }
+
+    #[rstest]
+    fn test_use_socket_merges_with_existing() {
+        let mut manager = MocksManager::new();
+
+        // Create two WS routes
+        let mut ws_route1 = create_test_ws_route("ws-route1", "/ws/1");
+        let mut preset1 = create_test_preset("preset1");
+        preset1.variants.push(create_test_variant("variant1"));
+        ws_route1.presets.push(preset1);
+        manager.add_route(ws_route1);
+
+        let mut ws_route2 = create_test_ws_route("ws-route2", "/ws/2");
+        let mut preset2 = create_test_preset("preset2");
+        preset2.variants.push(create_test_variant("variant2"));
+        ws_route2.presets.push(preset2);
+        manager.add_route(ws_route2);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["ws-route1:preset1:variant1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Add second WS route
+        controller
+            .use_socket(&["ws-route2:preset2:variant2".to_string()])
+            .unwrap();
+
+        // Should have 2 routes
+        assert_eq!(controller.get_active_routes().len(), 2);
+        let route_ids: Vec<&str> = controller
+            .get_active_routes()
+            .iter()
+            .map(|r| r.route.id.as_str())
+            .collect();
+        assert!(route_ids.contains(&"ws-route1"));
+        assert!(route_ids.contains(&"ws-route2"));
+    }
+
+    #[rstest]
+    fn test_use_socket_rejects_http_route() {
+        let mut manager = MocksManager::new();
+
+        // Create HTTP route
+        let mut http_route = create_test_route("http-route", "/api/users");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        http_route.presets.push(preset);
+        manager.add_route(http_route);
+
+        let mut controller = MocksController::new(manager);
+
+        // Try to use HTTP route with use_socket (should fail)
+        let result = controller.use_socket(&["http-route:preset1:variant1".to_string()]);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, ResolveError::TransportMismatch { .. }));
+
+        // Check error message contains suggestion
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("Use 'useRoutes' instead"));
+    }
+
+    #[rstest]
+    fn test_use_socket_route_not_found() {
+        let manager = MocksManager::new();
+        let mut controller = MocksController::new(manager);
+
+        let result = controller.use_socket(&["nonexistent:preset1:variant1".to_string()]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ResolveError::RouteNotFound { .. }
+        ));
+    }
+
+    #[rstest]
+    fn test_use_socket_preset_not_found() {
+        let mut manager = MocksManager::new();
+
+        let ws_route = create_test_ws_route("ws-route", "/ws");
+        manager.add_route(ws_route);
+
+        let mut controller = MocksController::new(manager);
+
+        let result = controller.use_socket(&["ws-route:nonexistent:variant1".to_string()]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ResolveError::PresetNotFound { .. }
+        ));
+    }
+
+    #[rstest]
+    fn test_use_socket_variant_not_found() {
+        let mut manager = MocksManager::new();
+
+        let mut ws_route = create_test_ws_route("ws-route", "/ws");
+        let preset = create_test_preset("preset1");
+        // No variants
+        ws_route.presets.push(preset);
+        manager.add_route(ws_route);
+
+        let mut controller = MocksController::new(manager);
+
+        let result = controller.use_socket(&["ws-route:preset1:nonexistent".to_string()]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ResolveError::VariantNotFound { .. }
+        ));
+    }
+
+    #[rstest]
+    fn test_use_socket_fail_fast_on_invalid() {
+        let mut manager = MocksManager::new();
+
+        let mut ws_route = create_test_ws_route("ws-route", "/ws");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        ws_route.presets.push(preset);
+        manager.add_route(ws_route);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["ws-route:preset1:variant1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Try to use valid + invalid routes
+        let result = controller.use_socket(&[
+            "ws-route:preset1:variant1".to_string(),
+            "nonexistent:preset:variant".to_string(),
+        ]);
+
+        // Should fail
+        assert!(result.is_err());
+
+        // Original routes should remain unchanged
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].route.id, "ws-route");
+    }
+
+    #[rstest]
+    fn test_use_socket_multiple_routes() {
+        let mut manager = MocksManager::new();
+
+        // Create two WS routes
+        let mut ws_route1 = create_test_ws_route("ws-route1", "/ws/1");
+        let mut preset1 = create_test_preset("preset1");
+        preset1.variants.push(create_test_variant("v1"));
+        ws_route1.presets.push(preset1);
+        manager.add_route(ws_route1);
+
+        let mut ws_route2 = create_test_ws_route("ws-route2", "/ws/2");
+        let mut preset2 = create_test_preset("preset2");
+        preset2.variants.push(create_test_variant("v1"));
+        ws_route2.presets.push(preset2);
+        manager.add_route(ws_route2);
+
+        let mut controller = MocksController::new(manager);
+
+        // Add multiple routes at once
+        controller
+            .use_socket(&[
+                "ws-route1:preset1:v1".to_string(),
+                "ws-route2:preset2:v1".to_string(),
+            ])
+            .unwrap();
+
+        assert_eq!(controller.get_active_routes().len(), 2);
     }
 }

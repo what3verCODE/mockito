@@ -63,7 +63,7 @@ impl MocksController {
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
-    /// Apply specific routes without changing the entire collection.
+    /// Apply specific HTTP routes without changing the entire collection.
     ///
     /// This method allows dynamic route switching by:
     /// - Resolving provided route references (`route:preset:variant`)
@@ -72,11 +72,30 @@ impl MocksController {
     ///
     /// @param routes - Array of route reference strings in format `route_id:preset_id:variant_id`
     /// @throws Error if route, preset, or variant not found
+    /// @throws Error if route is a WebSocket route (use useSocket instead)
     #[napi]
     pub fn use_routes(&self, routes: Vec<String>) -> Result<()> {
         let mut controller = self.inner.lock().unwrap();
         controller
             .use_routes(&routes)
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
+    /// Apply specific WebSocket routes without changing the entire collection.
+    ///
+    /// This method allows dynamic WebSocket route switching by:
+    /// - Resolving provided route references (`route:preset:variant`)
+    /// - Merging them with existing active routes
+    /// - Overriding routes with the same route ID
+    ///
+    /// @param routes - Array of route reference strings in format `route_id:preset_id:variant_id`
+    /// @throws Error if route, preset, or variant not found
+    /// @throws Error if route is not a WebSocket route (use useRoutes instead)
+    #[napi]
+    pub fn use_socket(&self, routes: Vec<String>) -> Result<()> {
+        let mut controller = self.inner.lock().unwrap();
+        controller
+            .use_socket(&routes)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
