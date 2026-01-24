@@ -74,6 +74,57 @@ impl MocksManager {
         }
     }
 
+    /// Resolve a single route reference to an ActiveRoute.
+    ///
+    /// Route reference format: `route_id:preset_id:variant_id`
+    ///
+    /// Returns error if route, preset, or variant not found.
+    pub fn resolve_route_reference(
+        &self,
+        route_ref_str: &str,
+    ) -> Result<ActiveRoute, ResolveError> {
+        let route_ref = RouteReference::parse(route_ref_str).ok_or_else(|| {
+            ResolveError::InvalidRouteReference {
+                reference: route_ref_str.to_string(),
+            }
+        })?;
+
+        // Get route
+        let route =
+            self.routes
+                .get(&route_ref.route_id)
+                .ok_or_else(|| ResolveError::RouteNotFound {
+                    route_id: route_ref.route_id.clone(),
+                })?;
+
+        // Get preset
+        let preset = route
+            .presets
+            .iter()
+            .find(|p| p.id == route_ref.preset_id)
+            .ok_or_else(|| ResolveError::PresetNotFound {
+                route_id: route_ref.route_id.clone(),
+                preset_id: route_ref.preset_id.clone(),
+            })?;
+
+        // Get variant
+        let variant = preset
+            .variants
+            .iter()
+            .find(|v| v.id == route_ref.variant_id)
+            .ok_or_else(|| ResolveError::VariantNotFound {
+                route_id: route_ref.route_id.clone(),
+                preset_id: route_ref.preset_id.clone(),
+                variant_id: route_ref.variant_id.clone(),
+            })?;
+
+        Ok(ActiveRoute {
+            route: route.clone(),
+            preset: preset.clone(),
+            variant: variant.clone(),
+        })
+    }
+
     /// Resolve a collection by ID, returning all active routes.
     ///
     /// Supports inheritance via `from` field and detects circular dependencies.
@@ -136,49 +187,9 @@ impl MocksManager {
 
         // Then, resolve current collection's routes (child overrides parent)
         for route_ref_str in &collection.routes {
-            let route_ref = RouteReference::parse(route_ref_str).ok_or_else(|| {
-                ResolveError::InvalidRouteReference {
-                    reference: route_ref_str.clone(),
-                }
-            })?;
-
-            // Get route
-            let route = self.routes.get(&route_ref.route_id).ok_or_else(|| {
-                ResolveError::RouteNotFound {
-                    route_id: route_ref.route_id.clone(),
-                }
-            })?;
-
-            // Get preset
-            let preset = route
-                .presets
-                .iter()
-                .find(|p| p.id == route_ref.preset_id)
-                .ok_or_else(|| ResolveError::PresetNotFound {
-                    route_id: route_ref.route_id.clone(),
-                    preset_id: route_ref.preset_id.clone(),
-                })?;
-
-            // Get variant
-            let variant = preset
-                .variants
-                .iter()
-                .find(|v| v.id == route_ref.variant_id)
-                .ok_or_else(|| ResolveError::VariantNotFound {
-                    route_id: route_ref.route_id.clone(),
-                    preset_id: route_ref.preset_id.clone(),
-                    variant_id: route_ref.variant_id.clone(),
-                })?;
-
-            // Create active route (child routes override parent routes with same route_id)
-            let active_route = ActiveRoute {
-                route: route.clone(),
-                preset: preset.clone(),
-                variant: variant.clone(),
-            };
-
+            let active_route = self.resolve_route_reference(route_ref_str)?;
             // Child routes override parent routes
-            route_map.insert(route_ref.route_id.clone(), active_route);
+            route_map.insert(active_route.route.id.clone(), active_route);
         }
 
         // Remove from visited after processing (allows reuse in different branches)

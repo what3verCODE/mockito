@@ -71,6 +71,50 @@ impl MocksController {
         Ok(())
     }
 
+    /// Apply specific routes without changing the entire collection.
+    ///
+    /// This method allows dynamic route switching by:
+    /// - Resolving provided route references (`route:preset:variant`)
+    /// - Merging them with existing active routes
+    /// - Overriding routes with the same route ID
+    ///
+    /// # Arguments
+    /// * `routes` - Array of route reference strings in format `route_id:preset_id:variant_id`
+    ///
+    /// # Errors
+    /// Returns error if route, preset, or variant not found.
+    ///
+    /// # Example
+    /// ```ignore
+    /// controller.use_collection("base")?;
+    /// controller.use_routes(&["users-api:error:not-found"])?;
+    /// ```
+    pub fn use_routes(&mut self, routes: &[String]) -> Result<(), ResolveError> {
+        // Resolve all new routes first (fail fast if any route is invalid)
+        let mut new_routes: Vec<ActiveRoute> = Vec::with_capacity(routes.len());
+        for route_ref in routes {
+            let active_route = self.mocks_manager.resolve_route_reference(route_ref)?;
+            new_routes.push(active_route);
+        }
+
+        // Build a set of new route IDs for quick lookup
+        let new_route_ids: std::collections::HashSet<&str> =
+            new_routes.iter().map(|r| r.route.id.as_str()).collect();
+
+        // Merge: keep existing routes that are not overridden, then add new routes
+        let mut merged_routes: Vec<ActiveRoute> = self
+            .cached_active_routes
+            .iter()
+            .filter(|existing| !new_route_ids.contains(existing.route.id.as_str()))
+            .cloned()
+            .collect();
+
+        merged_routes.extend(new_routes);
+
+        self.cached_active_routes = merged_routes;
+        Ok(())
+    }
+
     /// Get all currently active routes.
     ///
     /// Returns cached active routes from the current collection.
@@ -878,5 +922,312 @@ mod tests {
         let found = controller.find_route(&request);
         assert!(found.is_some());
         assert_eq!(found.unwrap().route.id, "route1");
+    }
+
+    // ============ use_routes tests ============
+
+    #[rstest]
+    fn test_use_routes_switches_variant() {
+        let mut manager = MocksManager::new();
+
+        // Create route with two variants
+        let mut route = create_test_route("route1", "/api/users");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        preset.variants.push(create_test_variant("variant2"));
+        route.presets.push(preset);
+        manager.add_route(route);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["route1:preset1:variant1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Initial state
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].variant.id, "variant1");
+
+        // Switch to variant2 using use_routes
+        controller
+            .use_routes(&["route1:preset1:variant2".to_string()])
+            .unwrap();
+
+        // Should still have 1 route but with variant2
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].variant.id, "variant2");
+    }
+
+    #[rstest]
+    fn test_use_routes_merges_with_existing() {
+        let mut manager = MocksManager::new();
+
+        // Create two routes
+        let mut route1 = create_test_route("route1", "/api/users");
+        let mut preset1 = create_test_preset("preset1");
+        preset1.variants.push(create_test_variant("variant1"));
+        route1.presets.push(preset1);
+        manager.add_route(route1);
+
+        let mut route2 = create_test_route("route2", "/api/posts");
+        let mut preset2 = create_test_preset("preset2");
+        preset2.variants.push(create_test_variant("variant2"));
+        route2.presets.push(preset2);
+        manager.add_route(route2);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["route1:preset1:variant1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Initial state: only route1
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].route.id, "route1");
+
+        // Add route2 using use_routes
+        controller
+            .use_routes(&["route2:preset2:variant2".to_string()])
+            .unwrap();
+
+        // Should now have 2 routes
+        assert_eq!(controller.get_active_routes().len(), 2);
+        let route_ids: Vec<&str> = controller
+            .get_active_routes()
+            .iter()
+            .map(|r| r.route.id.as_str())
+            .collect();
+        assert!(route_ids.contains(&"route1"));
+        assert!(route_ids.contains(&"route2"));
+    }
+
+    #[rstest]
+    fn test_use_routes_overrides_existing() {
+        let mut manager = MocksManager::new();
+
+        // Create route with two presets
+        let mut route = create_test_route("route1", "/api/users");
+
+        let mut preset1 = create_test_preset("preset1");
+        preset1.variants.push(create_test_variant("variant1"));
+
+        let mut preset2 = create_test_preset("preset2");
+        preset2.variants.push(create_test_variant("variant2"));
+
+        route.presets.push(preset1);
+        route.presets.push(preset2);
+        manager.add_route(route);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["route1:preset1:variant1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Initial: preset1
+        assert_eq!(controller.get_active_routes()[0].preset.id, "preset1");
+
+        // Override with preset2
+        controller
+            .use_routes(&["route1:preset2:variant2".to_string()])
+            .unwrap();
+
+        // Should have 1 route with preset2 (not 2 routes)
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].preset.id, "preset2");
+    }
+
+    #[rstest]
+    fn test_use_routes_without_collection() {
+        let mut manager = MocksManager::new();
+
+        let mut route = create_test_route("route1", "/api/users");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        route.presets.push(preset);
+        manager.add_route(route);
+
+        let mut controller = MocksController::new(manager);
+
+        // No collection selected, but use_routes should still work
+        assert_eq!(controller.get_active_routes().len(), 0);
+
+        controller
+            .use_routes(&["route1:preset1:variant1".to_string()])
+            .unwrap();
+
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].route.id, "route1");
+    }
+
+    #[rstest]
+    fn test_use_routes_route_not_found() {
+        let manager = MocksManager::new();
+        let mut controller = MocksController::new(manager);
+
+        let result = controller.use_routes(&["nonexistent:preset1:variant1".to_string()]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ResolveError::RouteNotFound { .. }
+        ));
+    }
+
+    #[rstest]
+    fn test_use_routes_preset_not_found() {
+        let mut manager = MocksManager::new();
+
+        let route = create_test_route("route1", "/api/users");
+        manager.add_route(route);
+
+        let mut controller = MocksController::new(manager);
+
+        let result = controller.use_routes(&["route1:nonexistent:variant1".to_string()]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ResolveError::PresetNotFound { .. }
+        ));
+    }
+
+    #[rstest]
+    fn test_use_routes_variant_not_found() {
+        let mut manager = MocksManager::new();
+
+        let mut route = create_test_route("route1", "/api/users");
+        let preset = create_test_preset("preset1");
+        // No variants
+        route.presets.push(preset);
+        manager.add_route(route);
+
+        let mut controller = MocksController::new(manager);
+
+        let result = controller.use_routes(&["route1:preset1:nonexistent".to_string()]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ResolveError::VariantNotFound { .. }
+        ));
+    }
+
+    #[rstest]
+    fn test_use_routes_invalid_reference_format() {
+        let manager = MocksManager::new();
+        let mut controller = MocksController::new(manager);
+
+        let result = controller.use_routes(&["invalid-format".to_string()]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ResolveError::InvalidRouteReference { .. }
+        ));
+    }
+
+    #[rstest]
+    fn test_use_routes_multiple_routes() {
+        let mut manager = MocksManager::new();
+
+        // Create three routes
+        let mut route1 = create_test_route("route1", "/api/users");
+        let mut preset1 = create_test_preset("preset1");
+        preset1.variants.push(create_test_variant("v1"));
+        preset1.variants.push(create_test_variant("v2"));
+        route1.presets.push(preset1);
+        manager.add_route(route1);
+
+        let mut route2 = create_test_route("route2", "/api/posts");
+        let mut preset2 = create_test_preset("preset2");
+        preset2.variants.push(create_test_variant("v1"));
+        route2.presets.push(preset2);
+        manager.add_route(route2);
+
+        let mut route3 = create_test_route("route3", "/api/comments");
+        let mut preset3 = create_test_preset("preset3");
+        preset3.variants.push(create_test_variant("v1"));
+        route3.presets.push(preset3);
+        manager.add_route(route3);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec![
+                "route1:preset1:v1".to_string(),
+                "route2:preset2:v1".to_string(),
+            ],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Override route1 and add route3
+        controller
+            .use_routes(&[
+                "route1:preset1:v2".to_string(),
+                "route3:preset3:v1".to_string(),
+            ])
+            .unwrap();
+
+        // Should have 3 routes: route2 (original), route1 (overridden), route3 (new)
+        assert_eq!(controller.get_active_routes().len(), 3);
+
+        let routes = controller.get_active_routes();
+        let route1 = routes.iter().find(|r| r.route.id == "route1").unwrap();
+        let route2 = routes.iter().find(|r| r.route.id == "route2").unwrap();
+        let route3 = routes.iter().find(|r| r.route.id == "route3").unwrap();
+
+        assert_eq!(route1.variant.id, "v2"); // Overridden
+        assert_eq!(route2.variant.id, "v1"); // Original
+        assert_eq!(route3.variant.id, "v1"); // New
+    }
+
+    #[rstest]
+    fn test_use_routes_fail_fast_on_invalid() {
+        let mut manager = MocksManager::new();
+
+        let mut route = create_test_route("route1", "/api/users");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        route.presets.push(preset);
+        manager.add_route(route);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["route1:preset1:variant1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Try to use valid + invalid routes
+        let result = controller.use_routes(&[
+            "route1:preset1:variant1".to_string(),
+            "nonexistent:preset:variant".to_string(),
+        ]);
+
+        // Should fail
+        assert!(result.is_err());
+
+        // Original routes should remain unchanged (fail fast)
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].route.id, "route1");
     }
 }

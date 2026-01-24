@@ -331,6 +331,185 @@ describe('MocksController', () => {
         });
     });
 
+    describe('useRoutes', () => {
+        /**
+         * Tests switching individual route variant without changing collection.
+         * @see example/mocker/__specs__/controller.spec.ts - "should mock selected route for default collection"
+         */
+        it('should switch individual route variant for selected collection', () => {
+            controller.useCollection('base');
+
+            // Initial state
+            const initialRoutes = controller.getActiveRoutes();
+            const initialUsersRoute = initialRoutes.find(r => r.route.id === 'users-api');
+            expect(initialUsersRoute?.variant.id).toBe('default');
+
+            // Switch users-api to error:not-found variant
+            controller.useRoutes(['users-api:error:not-found']);
+
+            const updatedRoutes = controller.getActiveRoutes();
+            const updatedUsersRoute = updatedRoutes.find(r => r.route.id === 'users-api');
+
+            expect(updatedUsersRoute?.variant.id).toBe('not-found');
+            expect(updatedUsersRoute?.preset.id).toBe('error');
+        });
+
+        /**
+         * Tests that existing routes are preserved when adding new routes.
+         * @see example/mocker/__specs__/controller.spec.ts - "should mock selected route for default collection"
+         */
+        it('should merge new routes with existing collection routes', () => {
+            controller.useCollection('base');
+
+            const initialRoutes = controller.getActiveRoutes();
+            expect(initialRoutes).toHaveLength(2); // users-api and products-api
+
+            // Add orders-api without removing existing routes
+            controller.useRoutes(['orders-api:success:default']);
+
+            const updatedRoutes = controller.getActiveRoutes();
+            expect(updatedRoutes).toHaveLength(3);
+
+            const routeIds = updatedRoutes.map(r => r.route.id);
+            expect(routeIds).toContain('users-api');
+            expect(routeIds).toContain('products-api');
+            expect(routeIds).toContain('orders-api');
+        });
+
+        /**
+         * Tests that routes with same ID are overridden.
+         * @see example/mocker/controller.ts - useRoutes method
+         */
+        it('should override existing route when same route:preset combination is used', () => {
+            controller.useCollection('base');
+
+            // Initial: users-api:success:default
+            const initialRoutes = controller.getActiveRoutes();
+            const initialUsersRoute = initialRoutes.find(r => r.route.id === 'users-api');
+            expect(initialUsersRoute?.variant.id).toBe('default');
+
+            // Override with different preset/variant
+            controller.useRoutes(['users-api:success:empty-list']);
+
+            const updatedRoutes = controller.getActiveRoutes();
+            // Should still have 2 routes, not 3
+            expect(updatedRoutes).toHaveLength(2);
+
+            const updatedUsersRoute = updatedRoutes.find(r => r.route.id === 'users-api');
+            expect(updatedUsersRoute?.variant.id).toBe('empty-list');
+        });
+
+        /**
+         * Tests error handling when route not found.
+         * @see example/mocker/__specs__/controller.spec.ts - "should throw if route not found"
+         */
+        it('should throw error if route not found', () => {
+            controller.useCollection('base');
+
+            expect(() => controller.useRoutes(['nonexistent-route:preset:variant'])).toThrow();
+        });
+
+        /**
+         * Tests error handling when preset not found.
+         * @see example/mocker/__specs__/controller.spec.ts - "should throw if preset for route not found"
+         */
+        it('should throw error if preset not found', () => {
+            controller.useCollection('base');
+
+            expect(() => controller.useRoutes(['users-api:nonexistent-preset:default'])).toThrow();
+        });
+
+        /**
+         * Tests error handling when variant not found.
+         * @see example/mocker/__specs__/controller.spec.ts - "should throw if variant for route not found"
+         */
+        it('should throw error if variant not found', () => {
+            controller.useCollection('base');
+
+            expect(() => controller.useRoutes(['users-api:success:nonexistent-variant'])).toThrow();
+        });
+
+        /**
+         * Tests error handling for invalid route reference format.
+         */
+        it('should throw error for invalid route reference format', () => {
+            controller.useCollection('base');
+
+            expect(() => controller.useRoutes(['invalid-format'])).toThrow();
+        });
+
+        /**
+         * Tests useRoutes without selecting a collection first.
+         * @see example/mocker/__specs__/controller.spec.ts - "should restore mock to nothing if no collection selected"
+         */
+        it('should work without collection selected', () => {
+            // No collection selected
+            expect(controller.getActiveRoutes()).toHaveLength(0);
+
+            // Add route directly
+            controller.useRoutes(['users-api:success:default']);
+
+            expect(controller.getActiveRoutes()).toHaveLength(1);
+            expect(controller.getActiveRoutes()[0]?.route.id).toBe('users-api');
+        });
+
+        /**
+         * Tests switching multiple routes at once.
+         */
+        it('should handle multiple routes in single call', () => {
+            controller.useCollection('base');
+
+            // Override users-api and add orders-api
+            controller.useRoutes([
+                'users-api:error:not-found',
+                'orders-api:success:default'
+            ]);
+
+            const routes = controller.getActiveRoutes();
+            expect(routes).toHaveLength(3);
+
+            const usersRoute = routes.find(r => r.route.id === 'users-api');
+            const ordersRoute = routes.find(r => r.route.id === 'orders-api');
+
+            expect(usersRoute?.variant.id).toBe('not-found');
+            expect(ordersRoute?.variant.id).toBe('default');
+        });
+
+        /**
+         * Tests that useRoutes does not change currentCollection.
+         */
+        it('should not change currentCollection', () => {
+            controller.useCollection('base');
+            expect(controller.currentCollection).toBe('base');
+
+            controller.useRoutes(['users-api:error:not-found']);
+
+            expect(controller.currentCollection).toBe('base');
+        });
+
+        /**
+         * Tests fail-fast behavior - if one route fails, no changes are applied.
+         */
+        it('should fail fast and not apply partial changes', () => {
+            controller.useCollection('base');
+
+            const initialRoutes = controller.getActiveRoutes();
+            const initialUsersVariant = initialRoutes.find(r => r.route.id === 'users-api')?.variant.id;
+
+            // First route is valid, second is invalid
+            expect(() => controller.useRoutes([
+                'users-api:success:empty-list',
+                'nonexistent:preset:variant'
+            ])).toThrow();
+
+            // Routes should remain unchanged
+            const currentRoutes = controller.getActiveRoutes();
+            const currentUsersVariant = currentRoutes.find(r => r.route.id === 'users-api')?.variant.id;
+
+            expect(currentUsersVariant).toBe(initialUsersVariant);
+        });
+    });
+
     /**
      * Features from JS implementation that may not be implemented yet.
      * These tests are marked as .todo and will be enabled when features are ready.
@@ -338,16 +517,6 @@ describe('MocksController', () => {
      * @see example/mocker/__specs__/controller.spec.ts for original test cases
      */
     describe('TODO: features to implement', () => {
-        /**
-         * @see example/mocker/__specs__/controller.spec.ts - "should mock selected route for default collection"
-         */
-        it.todo('should allow switching individual routes without changing collection (useRoutes)');
-
-        /**
-         * @see example/mocker/__specs__/controller.spec.ts - "should mock selected route for default collection"
-         */
-        it.todo('should merge new routes with existing collection routes');
-
         /**
          * @see example/mocker/__specs__/controller.spec.ts - "should throw if route is a websocket route"
          */
