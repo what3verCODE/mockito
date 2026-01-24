@@ -141,7 +141,9 @@ impl MocksController {
         // Resolve all new routes first (fail fast if any route is invalid)
         let mut new_routes: Vec<ActiveRoute> = Vec::with_capacity(routes.len());
         for route_ref in routes {
-            let active_route = self.mocks_manager.resolve_websocket_route_reference(route_ref)?;
+            let active_route = self
+                .mocks_manager
+                .resolve_websocket_route_reference(route_ref)?;
             new_routes.push(active_route);
         }
 
