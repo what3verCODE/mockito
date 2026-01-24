@@ -11,6 +11,18 @@ export declare class MocksController {
   constructor(collectionsPath: string, routesPath: string, defaultCollection?: string | undefined | null)
   /** Apply a collection by ID */
   useCollection(collectionId: string): void
+  /**
+   * Apply specific routes without changing the entire collection.
+   *
+   * This method allows dynamic route switching by:
+   * - Resolving provided route references (`route:preset:variant`)
+   * - Merging them with existing active routes
+   * - Overriding routes with the same route ID
+   *
+   * @param routes - Array of route reference strings in format `route_id:preset_id:variant_id`
+   * @throws Error if route, preset, or variant not found
+   */
+  useRoutes(routes: Array<string>): void
   /** Get current collection ID */
   get currentCollection(): string | null
   /** Get all active routes (HTTP + WS) */

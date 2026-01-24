@@ -63,6 +63,23 @@ impl MocksController {
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
+    /// Apply specific routes without changing the entire collection.
+    ///
+    /// This method allows dynamic route switching by:
+    /// - Resolving provided route references (`route:preset:variant`)
+    /// - Merging them with existing active routes
+    /// - Overriding routes with the same route ID
+    ///
+    /// @param routes - Array of route reference strings in format `route_id:preset_id:variant_id`
+    /// @throws Error if route, preset, or variant not found
+    #[napi]
+    pub fn use_routes(&self, routes: Vec<String>) -> Result<()> {
+        let mut controller = self.inner.lock().unwrap();
+        controller
+            .use_routes(&routes)
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
     /// Get current collection ID
     #[napi(getter)]
     pub fn current_collection(&self) -> Option<String> {
