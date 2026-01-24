@@ -99,6 +99,18 @@ impl MocksController {
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
+    /// Reset routes to collection defaults or clear all routes.
+    ///
+    /// If a collection is selected, restores routes to the collection's initial state.
+    /// If no collection is selected, clears all routes (empty state).
+    #[napi]
+    pub fn reset_routes(&self) -> Result<()> {
+        let mut controller = self.inner.lock().unwrap();
+        controller
+            .reset_routes()
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
     /// Get current collection ID
     #[napi(getter)]
     pub fn current_collection(&self) -> Option<String> {

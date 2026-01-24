@@ -179,6 +179,31 @@ impl MocksController {
         self.active_collection_id.as_deref()
     }
 
+    /// Reset routes to collection defaults or clear all routes.
+    ///
+    /// If a collection is selected, restores routes to the collection's initial state.
+    /// If no collection is selected, clears all routes (empty state).
+    ///
+    /// # Errors
+    /// Returns error if collection resolution fails (should not happen for already-selected collection).
+    ///
+    /// # Example
+    /// ```ignore
+    /// controller.use_collection("base")?;
+    /// controller.use_routes(&["users-api:error:not-found"])?;
+    /// controller.reset_routes()?; // Restores to "base" collection state
+    /// ```
+    pub fn reset_routes(&mut self) -> Result<(), ResolveError> {
+        if let Some(collection_id) = self.active_collection_id.clone() {
+            // Restore to collection state
+            self.use_collection(&collection_id)
+        } else {
+            // No collection selected - clear all routes
+            self.cached_active_routes.clear();
+            Ok(())
+        }
+    }
+
     /// Find a route that matches the given request.
     ///
     /// Searches through cached active routes and returns the first matching route.
@@ -1564,5 +1589,172 @@ mod tests {
             .unwrap();
 
         assert_eq!(controller.get_active_routes().len(), 2);
+    }
+
+    // ============ reset_routes tests ============
+
+    #[rstest]
+    fn test_reset_routes_restores_collection_state() {
+        let mut manager = MocksManager::new();
+
+        // Create route with two variants
+        let mut route = create_test_route("route1", "/api/users");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        preset.variants.push(create_test_variant("variant2"));
+        route.presets.push(preset);
+        manager.add_route(route);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["route1:preset1:variant1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Initial state
+        assert_eq!(controller.get_active_routes()[0].variant.id, "variant1");
+
+        // Change variant
+        controller
+            .use_routes(&["route1:preset1:variant2".to_string()])
+            .unwrap();
+        assert_eq!(controller.get_active_routes()[0].variant.id, "variant2");
+
+        // Reset to collection state
+        controller.reset_routes().unwrap();
+
+        // Should be back to variant1
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].variant.id, "variant1");
+    }
+
+    #[rstest]
+    fn test_reset_routes_clears_when_no_collection() {
+        let mut manager = MocksManager::new();
+
+        let mut route = create_test_route("route1", "/api/users");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        route.presets.push(preset);
+        manager.add_route(route);
+
+        let mut controller = MocksController::new(manager);
+
+        // No collection selected, add route directly
+        controller
+            .use_routes(&["route1:preset1:variant1".to_string()])
+            .unwrap();
+        assert_eq!(controller.get_active_routes().len(), 1);
+
+        // Reset routes
+        controller.reset_routes().unwrap();
+
+        // Should be empty
+        assert_eq!(controller.get_active_routes().len(), 0);
+    }
+
+    #[rstest]
+    fn test_reset_routes_preserves_collection_id() {
+        let mut manager = MocksManager::new();
+
+        let mut route = create_test_route("route1", "/api/users");
+        let mut preset = create_test_preset("preset1");
+        preset.variants.push(create_test_variant("variant1"));
+        route.presets.push(preset);
+        manager.add_route(route);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["route1:preset1:variant1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+        assert_eq!(controller.active_collection_id(), Some("collection1"));
+
+        // Add another route
+        controller
+            .use_routes(&["route1:preset1:variant1".to_string()])
+            .unwrap();
+
+        // Reset
+        controller.reset_routes().unwrap();
+
+        // Collection ID should still be set
+        assert_eq!(controller.active_collection_id(), Some("collection1"));
+    }
+
+    #[rstest]
+    fn test_reset_routes_on_empty_controller() {
+        let manager = MocksManager::new();
+        let mut controller = MocksController::new(manager);
+
+        // No collection selected, no routes added
+        assert_eq!(controller.get_active_routes().len(), 0);
+        assert_eq!(controller.active_collection_id(), None);
+
+        // Reset should succeed and keep empty state
+        controller.reset_routes().unwrap();
+
+        assert_eq!(controller.get_active_routes().len(), 0);
+        assert_eq!(controller.active_collection_id(), None);
+    }
+
+    #[rstest]
+    fn test_reset_routes_after_multiple_changes() {
+        let mut manager = MocksManager::new();
+
+        // Create route with multiple presets
+        let mut route = create_test_route("route1", "/api/users");
+        let mut preset1 = create_test_preset("preset1");
+        preset1.variants.push(create_test_variant("v1"));
+        let mut preset2 = create_test_preset("preset2");
+        preset2.variants.push(create_test_variant("v2"));
+        route.presets.push(preset1);
+        route.presets.push(preset2);
+        manager.add_route(route);
+
+        // Create another route
+        let mut route2 = create_test_route("route2", "/api/posts");
+        let mut preset3 = create_test_preset("preset3");
+        preset3.variants.push(create_test_variant("v3"));
+        route2.presets.push(preset3);
+        manager.add_route(route2);
+
+        let collection = Collection {
+            id: "collection1".to_string(),
+            from: None,
+            routes: vec!["route1:preset1:v1".to_string()],
+        };
+        manager.add_collection(collection);
+
+        let mut controller = MocksController::new(manager);
+        controller.use_collection("collection1").unwrap();
+
+        // Make multiple changes
+        controller
+            .use_routes(&["route1:preset2:v2".to_string()])
+            .unwrap();
+        controller
+            .use_routes(&["route2:preset3:v3".to_string()])
+            .unwrap();
+
+        // Now we have 2 routes with different presets
+        assert_eq!(controller.get_active_routes().len(), 2);
+
+        // Reset
+        controller.reset_routes().unwrap();
+
+        // Should be back to original collection state (1 route with preset1)
+        assert_eq!(controller.get_active_routes().len(), 1);
+        assert_eq!(controller.get_active_routes()[0].route.id, "route1");
+        assert_eq!(controller.get_active_routes()[0].preset.id, "preset1");
+        assert_eq!(controller.get_active_routes()[0].variant.id, "v1");
     }
 }

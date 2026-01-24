@@ -37,6 +37,13 @@ export declare class MocksController {
    * @throws Error if route is not a WebSocket route (use useRoutes instead)
    */
   useSocket(routes: Array<string>): void
+  /**
+   * Reset routes to collection defaults or clear all routes.
+   *
+   * If a collection is selected, restores routes to the collection's initial state.
+   * If no collection is selected, clears all routes (empty state).
+   */
+  resetRoutes(): void
   /** Get current collection ID */
   get currentCollection(): string | null
   /** Get all active routes (HTTP + WS) */
