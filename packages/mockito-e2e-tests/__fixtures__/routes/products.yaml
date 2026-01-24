@@ -1,0 +1,19 @@
+id: products-api
+url: /api/products
+transport: HTTP
+method: GET
+presets:
+  - id: success
+    variants:
+      - id: default
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          products:
+            - id: 1
+              name: Product A
+              price: 99.99
+            - id: 2
+              name: Product B
+              price: 149.99

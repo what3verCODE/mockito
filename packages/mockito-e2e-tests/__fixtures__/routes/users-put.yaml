@@ -1,0 +1,19 @@
+id: users-put
+url: /api/users/:id
+transport: HTTP
+method: PUT
+presets:
+  - id: update
+    params:
+      id: "123"
+    headers:
+      Content-Type: application/json
+    variants:
+      - id: success
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          id: 123
+          name: Updated User
+          updated: true

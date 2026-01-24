@@ -1,0 +1,139 @@
+# Base collection - simple case
+- id: base
+  routes:
+    - users-api:success:default
+    - products-api:success:default
+
+# Collection with inheritance (from base)
+- id: extended
+  from: base
+  routes:
+    - users-api:error:not-found
+    - orders-api:success:default
+
+# Collection overriding parent route
+- id: override-parent
+  from: base
+  routes:
+    - users-api:success:empty-list
+
+# Deeply nested collection
+- id: deeply-nested
+  from: extended
+  routes:
+    - payments-api:success:default
+
+# Collection without inheritance
+- id: standalone
+  routes:
+    - users-api:success:default
+    - users-api:error:server-error
+
+# Collection with WebSocket routes
+- id: with-websocket
+  routes:
+    - ws-notifications:default:message
+
+# Empty collection (edge case)
+- id: minimal
+  routes:
+    - users-api:success:default
+
+# CRUD collection - all HTTP methods
+- id: crud-operations
+  routes:
+    - users-crud:get-by-id:found
+    - users-post:create:success
+    - users-put:update:success
+    - users-patch:partial-update:success
+    - users-delete:remove:success
+
+# Error responses collection
+- id: error-responses
+  routes:
+    - users-crud:get-by-id:not-found
+    - users-post:create:validation-error
+    - users-delete:remove:not-found
+    - auth-api:login:invalid-credentials
+
+# Health check collection
+- id: health
+  routes:
+    - health-check:default:healthy
+
+# Unhealthy state
+- id: health-unhealthy
+  from: health
+  routes:
+    - health-check:default:unhealthy
+
+# Search with query params
+- id: search
+  routes:
+    - search-api:with-query:results
+
+# Search empty
+- id: search-empty
+  routes:
+    - search-api:empty-query:no-results
+
+# Authentication flows
+- id: auth-success
+  routes:
+    - auth-api:login:success
+
+- id: auth-failed
+  routes:
+    - auth-api:login:invalid-credentials
+
+- id: auth-rate-limited
+  routes:
+    - auth-api:login:rate-limited
+
+# File upload
+- id: file-upload
+  routes:
+    - file-upload:upload:success
+
+- id: file-upload-error
+  routes:
+    - file-upload:upload:too-large
+
+# WebSocket chat
+- id: ws-chat
+  routes:
+    - ws-chat:default:connected
+
+- id: ws-chat-message
+  routes:
+    - ws-chat:default:message
+
+# Combined collection - multiple features
+- id: full-api
+  routes:
+    - users-api:success:default
+    - products-api:success:default
+    - orders-api:success:default
+    - health-check:default:healthy
+    - search-api:with-query:results
+    - auth-api:login:success
+
+# Multi-level inheritance test
+- id: level-1
+  routes:
+    - users-api:success:default
+
+- id: level-2
+  from: level-1
+  routes:
+    - products-api:success:default
+
+- id: level-3
+  from: level-2
+  routes:
+    - orders-api:success:default
+
+- id: level-4
+  from: level-3
+  routes:
+    - payments-api:success:default

@@ -1,0 +1,16 @@
+id: users-patch
+url: /api/users/:id
+transport: HTTP
+method: PATCH
+presets:
+  - id: partial-update
+    params:
+      id: "123"
+    variants:
+      - id: success
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          id: 123
+          patched: true

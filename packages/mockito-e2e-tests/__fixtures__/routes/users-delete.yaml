@@ -1,0 +1,17 @@
+id: users-delete
+url: /api/users/:id
+transport: HTTP
+method: DELETE
+presets:
+  - id: remove
+    params:
+      id: "123"
+    variants:
+      - id: success
+        status: 204
+      - id: not-found
+        status: 404
+        headers:
+          Content-Type: application/json
+        body:
+          error: User not found
