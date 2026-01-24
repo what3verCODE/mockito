@@ -12,7 +12,7 @@ export declare class MocksController {
   /** Apply a collection by ID */
   useCollection(collectionId: string): void
   /**
-   * Apply specific routes without changing the entire collection.
+   * Apply specific HTTP routes without changing the entire collection.
    *
    * This method allows dynamic route switching by:
    * - Resolving provided route references (`route:preset:variant`)
@@ -21,8 +21,22 @@ export declare class MocksController {
    *
    * @param routes - Array of route reference strings in format `route_id:preset_id:variant_id`
    * @throws Error if route, preset, or variant not found
+   * @throws Error if route is a WebSocket route (use useSocket instead)
    */
   useRoutes(routes: Array<string>): void
+  /**
+   * Apply specific WebSocket routes without changing the entire collection.
+   *
+   * This method allows dynamic WebSocket route switching by:
+   * - Resolving provided route references (`route:preset:variant`)
+   * - Merging them with existing active routes
+   * - Overriding routes with the same route ID
+   *
+   * @param routes - Array of route reference strings in format `route_id:preset_id:variant_id`
+   * @throws Error if route, preset, or variant not found
+   * @throws Error if route is not a WebSocket route (use useRoutes instead)
+   */
+  useSocket(routes: Array<string>): void
   /** Get current collection ID */
   get currentCollection(): string | null
   /** Get all active routes (HTTP + WS) */

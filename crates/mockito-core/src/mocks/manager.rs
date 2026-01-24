@@ -6,7 +6,7 @@
 
 use crate::types::collection::Collection;
 use crate::types::preset::Preset;
-use crate::types::route::{Route, RouteReference};
+use crate::types::route::{Route, RouteReference, Transport};
 use crate::types::variant::Variant;
 use std::collections::{HashMap, HashSet};
 
@@ -123,6 +123,60 @@ impl MocksManager {
             preset: preset.clone(),
             variant: variant.clone(),
         })
+    }
+
+    /// Resolve a WebSocket route reference to an ActiveRoute.
+    ///
+    /// Similar to `resolve_route_reference` but validates that the route
+    /// is a WebSocket route (transport: WEBSOCKET).
+    ///
+    /// Returns error if:
+    /// - Route, preset, or variant not found
+    /// - Route is not a WebSocket route (suggests using `useRoutes` instead)
+    pub fn resolve_websocket_route_reference(
+        &self,
+        route_ref_str: &str,
+    ) -> Result<ActiveRoute, ResolveError> {
+        let active_route = self.resolve_route_reference(route_ref_str)?;
+
+        // Validate transport is WebSocket
+        if active_route.route.transport != Transport::WebSocket {
+            return Err(ResolveError::TransportMismatch {
+                route_id: active_route.route.id,
+                expected: "a websocket".to_string(),
+                actual: "not a websocket".to_string(),
+                suggestion: "Use 'useRoutes' instead".to_string(),
+            });
+        }
+
+        Ok(active_route)
+    }
+
+    /// Resolve an HTTP route reference to an ActiveRoute.
+    ///
+    /// Similar to `resolve_route_reference` but validates that the route
+    /// is an HTTP route (transport: HTTP).
+    ///
+    /// Returns error if:
+    /// - Route, preset, or variant not found
+    /// - Route is a WebSocket route (suggests using `useSocket` instead)
+    pub fn resolve_http_route_reference(
+        &self,
+        route_ref_str: &str,
+    ) -> Result<ActiveRoute, ResolveError> {
+        let active_route = self.resolve_route_reference(route_ref_str)?;
+
+        // Validate transport is HTTP
+        if active_route.route.transport == Transport::WebSocket {
+            return Err(ResolveError::TransportMismatch {
+                route_id: active_route.route.id,
+                expected: "an HTTP".to_string(),
+                actual: "a websocket".to_string(),
+                suggestion: "Use 'useSocket' instead".to_string(),
+            });
+        }
+
+        Ok(active_route)
     }
 
     /// Resolve a collection by ID, returning all active routes.
@@ -265,6 +319,13 @@ pub enum ResolveError {
     InvalidRouteReference { reference: String },
     /// Circular dependency detected
     CircularDependency { collection_id: String },
+    /// Transport type mismatch (e.g., HTTP route used with useSocket)
+    TransportMismatch {
+        route_id: String,
+        expected: String,
+        actual: String,
+        suggestion: String,
+    },
 }
 
 impl std::fmt::Display for ResolveError {
@@ -305,6 +366,18 @@ impl std::fmt::Display for ResolveError {
                     f,
                     "Circular dependency detected involving collection: {}",
                     collection_id
+                )
+            }
+            ResolveError::TransportMismatch {
+                route_id,
+                expected: _,
+                actual,
+                suggestion,
+            } => {
+                write!(
+                    f,
+                    "Route with id = {} is {} route. {}",
+                    route_id, actual, suggestion
                 )
             }
         }
