@@ -656,6 +656,133 @@ describe('MocksController', () => {
         });
     });
 
+    describe('resetRoutes', () => {
+        /**
+         * Tests that resetRoutes restores collection to initial state.
+         * @see example/mocker/__specs__/controller.spec.ts - "should restore mock to selected collection"
+         */
+        it('should restore routes to collection state', () => {
+            controller.useCollection('base');
+
+            // Initial state
+            const initialRoutes = controller.getActiveRoutes();
+            const initialUsersRoute = initialRoutes.find(r => r.route.id === 'users-api');
+            expect(initialUsersRoute?.variant.id).toBe('default');
+
+            // Change variant
+            controller.useRoutes(['users-api:error:not-found']);
+            const changedRoutes = controller.getActiveRoutes();
+            const changedUsersRoute = changedRoutes.find(r => r.route.id === 'users-api');
+            expect(changedUsersRoute?.variant.id).toBe('not-found');
+
+            // Reset routes
+            controller.resetRoutes();
+
+            // Should be back to initial state
+            const restoredRoutes = controller.getActiveRoutes();
+            const restoredUsersRoute = restoredRoutes.find(r => r.route.id === 'users-api');
+            expect(restoredUsersRoute?.variant.id).toBe('default');
+        });
+
+        /**
+         * Tests that resetRoutes clears all routes when no collection selected.
+         * @see example/mocker/__specs__/controller.spec.ts - "should restore mock to nothing if no collection selected"
+         */
+        it('should clear all routes when no collection selected', () => {
+            // No collection selected
+            expect(controller.currentCollection).toBeNull();
+
+            // Add route directly
+            controller.useRoutes(['users-api:success:default']);
+            expect(controller.getActiveRoutes()).toHaveLength(1);
+
+            // Reset routes
+            controller.resetRoutes();
+
+            // Should be empty
+            expect(controller.getActiveRoutes()).toHaveLength(0);
+        });
+
+        /**
+         * Tests that resetRoutes preserves currentCollection.
+         */
+        it('should preserve currentCollection after reset', () => {
+            controller.useCollection('base');
+            expect(controller.currentCollection).toBe('base');
+
+            // Make changes
+            controller.useRoutes(['users-api:error:not-found']);
+
+            // Reset
+            controller.resetRoutes();
+
+            // Collection should still be set
+            expect(controller.currentCollection).toBe('base');
+        });
+
+        /**
+         * Tests resetRoutes on empty controller.
+         */
+        it('should work on empty controller', () => {
+            // No routes, no collection
+            expect(controller.getActiveRoutes()).toHaveLength(0);
+            expect(controller.currentCollection).toBeNull();
+
+            // Reset should succeed
+            controller.resetRoutes();
+
+            // Still empty
+            expect(controller.getActiveRoutes()).toHaveLength(0);
+            expect(controller.currentCollection).toBeNull();
+        });
+
+        /**
+         * Tests resetRoutes after multiple changes.
+         */
+        it('should restore original state after multiple changes', () => {
+            controller.useCollection('base');
+
+            // Make multiple changes
+            controller.useRoutes(['users-api:error:not-found']);
+            controller.useRoutes(['orders-api:success:default']);
+
+            // Now we have modified routes
+            expect(controller.getActiveRoutes()).toHaveLength(3);
+
+            // Reset
+            controller.resetRoutes();
+
+            // Should be back to original (base collection has 2 routes)
+            expect(controller.getActiveRoutes()).toHaveLength(2);
+            const routeIds = controller.getActiveRoutes().map(r => r.route.id);
+            expect(routeIds).toContain('users-api');
+            expect(routeIds).toContain('products-api');
+            expect(routeIds).not.toContain('orders-api');
+        });
+
+        /**
+         * Tests resetRoutes with WebSocket routes.
+         */
+        it('should reset WebSocket routes too', () => {
+            controller.useCollection('with-websocket');
+
+            // Initial state
+            expect(controller.getActiveRoutes()).toHaveLength(1);
+            expect(controller.getActiveRoutes()[0]?.route.id).toBe('ws-notifications');
+
+            // Add another WebSocket route
+            controller.useSocket(['ws-chat:default:message']);
+            expect(controller.getActiveRoutes()).toHaveLength(2);
+
+            // Reset
+            controller.resetRoutes();
+
+            // Should be back to initial (1 WebSocket route)
+            expect(controller.getActiveRoutes()).toHaveLength(1);
+            expect(controller.getActiveRoutes()[0]?.route.id).toBe('ws-notifications');
+        });
+    });
+
     /**
      * Features from JS implementation that may not be implemented yet.
      * These tests are marked as .todo and will be enabled when features are ready.
@@ -667,11 +794,6 @@ describe('MocksController', () => {
          * @see example/mocker/controller.ts - getWebSocket method
          */
         it.todo('should provide getWebSocket method for WebSocket instance access');
-
-        /**
-         * @see example/mocker/__specs__/controller.spec.ts - "should restore mock to selected collection"
-         */
-        it.todo('should support resetRoutes to restore collection state');
 
         /**
          * @see example/mocker/__specs__/controller.spec.ts - "should throw if collection have duplicated routes"
