@@ -1,0 +1,12 @@
+id: ws-notifications
+url: /ws/notifications
+transport: WEBSOCKET
+presets:
+  - id: default
+    variants:
+      - id: message
+        body:
+          type: notification
+          payload:
+            title: New message
+            content: Hello, world!

@@ -30,8 +30,8 @@
   "scripts": {
     "artifacts": "napi artifacts",
     "prepack": "napi prepublish --tag-style npm --skip-optional-publish && node scripts/copy-readme.js",
-    "build": "napi build --manifest-path ../../crates/mockito-napi/Cargo.toml --const-enum --platform -p mockito-napi --js ./binding.js --dts ./binding.d.ts --release -o .",
-    "build:dev": "napi build --manifest-path ../../crates/mockito-napi/Cargo.toml --const-enum --platform -p mockito-napi --js ./binding.js --dts ./binding.d.ts -o ."
+    "build": "napi build --manifest-path ../../crates/mockito-napi/Cargo.toml --platform -p mockito-napi --js ./binding.js --dts ./binding.d.ts --release -o .",
+    "build:dev": "napi build --manifest-path ../../crates/mockito-napi/Cargo.toml --platform -p mockito-napi --js ./binding.js --dts ./binding.d.ts -o ."
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.5.1"

@@ -1,0 +1,16 @@
+id: payments-api
+url: /api/payments
+transport: HTTP
+method: POST
+presets:
+  - id: success
+    headers:
+      Authorization: Bearer ${headers.token}
+    variants:
+      - id: default
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          paymentId: pay_123
+          status: completed

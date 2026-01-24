@@ -1,0 +1,34 @@
+id: search-api
+url: /api/search
+transport: HTTP
+method: GET
+presets:
+  - id: with-query
+    query:
+      q: test
+      page: "1"
+      limit: "10"
+    variants:
+      - id: results
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          query: test
+          page: 1
+          limit: 10
+          results:
+            - id: 1
+              title: Test Result 1
+            - id: 2
+              title: Test Result 2
+          total: 100
+  - id: empty-query
+    variants:
+      - id: no-results
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          results: []
+          total: 0

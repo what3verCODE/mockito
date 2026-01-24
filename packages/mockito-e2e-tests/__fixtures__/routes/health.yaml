@@ -1,0 +1,21 @@
+id: health-check
+url: /health
+transport: HTTP
+method: GET
+presets:
+  - id: default
+    variants:
+      - id: healthy
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          status: ok
+          timestamp: "2024-01-01T00:00:00Z"
+      - id: unhealthy
+        status: 503
+        headers:
+          Content-Type: application/json
+        body:
+          status: error
+          message: Service unavailable

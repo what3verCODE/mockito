@@ -1,0 +1,43 @@
+id: users-api
+url: /api/users
+transport: HTTP
+method: GET
+presets:
+  - id: success
+    variants:
+      - id: default
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          data:
+            - id: 1
+              name: John Doe
+              email: john@example.com
+            - id: 2
+              name: Jane Doe
+              email: jane@example.com
+          total: 2
+      - id: empty-list
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          data: []
+          total: 0
+  - id: error
+    variants:
+      - id: not-found
+        status: 404
+        headers:
+          Content-Type: application/json
+        body:
+          error: Users not found
+          code: NOT_FOUND
+      - id: server-error
+        status: 500
+        headers:
+          Content-Type: application/json
+        body:
+          error: Internal server error
+          code: SERVER_ERROR

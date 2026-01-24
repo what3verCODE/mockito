@@ -1,0 +1,17 @@
+id: ws-chat
+url: /ws/chat
+transport: WEBSOCKET
+presets:
+  - id: default
+    variants:
+      - id: connected
+        body:
+          type: connected
+          userId: user-123
+          room: general
+      - id: message
+        body:
+          type: message
+          from: user-456
+          text: Hello, World!
+          timestamp: "2024-01-01T12:00:00Z"

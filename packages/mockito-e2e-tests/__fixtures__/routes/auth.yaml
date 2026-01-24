@@ -1,0 +1,35 @@
+id: auth-api
+url: /api/auth/login
+transport: HTTP
+method: POST
+presets:
+  - id: login
+    headers:
+      Content-Type: application/json
+    payload:
+      username: admin
+      password: secret
+    variants:
+      - id: success
+        status: 200
+        headers:
+          Content-Type: application/json
+          Set-Cookie: session=abc123; HttpOnly
+        body:
+          token: jwt-token-here
+          expiresIn: 3600
+      - id: invalid-credentials
+        status: 401
+        headers:
+          Content-Type: application/json
+        body:
+          error: Invalid credentials
+          code: AUTH_FAILED
+      - id: rate-limited
+        status: 429
+        headers:
+          Content-Type: application/json
+          Retry-After: "60"
+        body:
+          error: Too many requests
+          retryAfter: 60

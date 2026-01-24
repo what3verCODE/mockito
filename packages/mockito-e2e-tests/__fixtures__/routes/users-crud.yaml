@@ -1,0 +1,25 @@
+# Full CRUD operations for users
+id: users-crud
+url: /api/users/:id
+transport: HTTP
+method: GET
+presets:
+  - id: get-by-id
+    params:
+      id: "123"
+    variants:
+      - id: found
+        status: 200
+        headers:
+          Content-Type: application/json
+        body:
+          id: 123
+          name: John Doe
+          email: john@example.com
+      - id: not-found
+        status: 404
+        headers:
+          Content-Type: application/json
+        body:
+          error: User not found
+          code: USER_NOT_FOUND

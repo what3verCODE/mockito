@@ -1,0 +1,28 @@
+id: users-post
+url: /api/users
+transport: HTTP
+method: POST
+presets:
+  - id: create
+    headers:
+      Content-Type: application/json
+    payload:
+      name: New User
+    variants:
+      - id: success
+        status: 201
+        headers:
+          Content-Type: application/json
+          Location: /api/users/999
+        body:
+          id: 999
+          name: New User
+          created: true
+      - id: validation-error
+        status: 400
+        headers:
+          Content-Type: application/json
+        body:
+          error: Validation failed
+          fields:
+            - name: required

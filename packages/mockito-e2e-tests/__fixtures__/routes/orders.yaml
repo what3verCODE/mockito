@@ -1,0 +1,18 @@
+id: orders-api
+url: /api/orders
+transport: HTTP
+method: POST
+presets:
+  - id: success
+    headers:
+      Content-Type: application/json
+    payload:
+      productId: 1
+    variants:
+      - id: default
+        status: 201
+        headers:
+          Content-Type: application/json
+        body:
+          orderId: 12345
+          status: created
